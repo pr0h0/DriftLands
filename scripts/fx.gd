@@ -13,8 +13,30 @@ static func _fade_ramp(peak := 1.0) -> GradientTexture1D:
 	return t
 
 
+static var _soft_tex: GradientTexture2D
+
+
+## Soft round dot so particles read as glows instead of hard squares.
+static func soft_texture() -> GradientTexture2D:
+	if _soft_tex == null:
+		_soft_tex = GradientTexture2D.new()
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		g.add_point(0.35, Color(1, 1, 1, 0.75))
+		_soft_tex.gradient = g
+		_soft_tex.fill = GradientTexture2D.FILL_RADIAL
+		_soft_tex.fill_from = Vector2(0.5, 0.5)
+		_soft_tex.fill_to = Vector2(0.5, 0.0)
+		_soft_tex.width = 64
+		_soft_tex.height = 64
+	return _soft_tex
+
+
 static func _additive(color: Color, billboard: int) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
+	if billboard == BaseMaterial3D.BILLBOARD_PARTICLES:
+		m.albedo_texture = soft_texture()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD

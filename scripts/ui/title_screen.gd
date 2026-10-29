@@ -15,6 +15,7 @@ var _settings: SettingsMenu
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_PAUSABLE
 	cycle = SkyCycle.new()
 	cycle.hour = 17.6
 	cycle.day_length = 4000.0
@@ -42,6 +43,31 @@ func _process(dt: float) -> void:
 		level.follow = cam
 
 
+## Secret: typing "skyward" on the title screen unlocks every level (for testing).
+const UNLOCK_CODE := "skyward"
+var _typed := ""
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.unicode > 0:
+		_typed = (_typed + char(event.unicode).to_lower()).right(UNLOCK_CODE.length())
+		if _typed == UNLOCK_CODE:
+			_typed = ""
+			Progress.data["unlocked"] = Levels.count()
+			Progress.save()
+			Sound.play("collect")
+			var l := UITheme.title_label("All levels unlocked", 40)
+			l.modulate = UITheme.GOLD
+			l.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+			l.position = Vector2(_ui.size.x / 2.0 - 200.0, 40.0)
+			_ui.add_child(l)
+			var t := create_tween()
+			t.tween_interval(2.0)
+			t.tween_property(l, "modulate:a", 0.0, 1.0)
+			t.tween_callback(l.queue_free)
+			_show_main()
+
+
 func _orbit(t: float) -> void:
 	var a := 2.4 + t * 0.03
 	cam.global_position = Vector3(cos(a) * 49.0, 16.0 + sin(t * 0.1) * 2.5, sin(a) * 49.0)
@@ -57,15 +83,16 @@ func _build_ui() -> void:
 	layer.add_child(_ui)
 	var shade := TextureRect.new()
 	var g := Gradient.new()
-	g.set_color(0, Color(0.04, 0.03, 0.06, 0.75))
+	g.set_color(0, Color(0.04, 0.03, 0.06, 0.88))
 	g.set_color(1, Color(0.04, 0.03, 0.06, 0.0))
+	g.add_point(0.55, Color(0.04, 0.03, 0.06, 0.6))
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill_to = Vector2(1, 0)
 	shade.texture = gt
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
 	shade.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
-	shade.offset_right = 900
+	shade.offset_right = 1150
 	_ui.add_child(shade)
 
 	var margin := MarginContainer.new()
@@ -80,7 +107,7 @@ func _build_ui() -> void:
 	col.add_child(UITheme.title_label("Driftlands", 112))
 	var sub := Label.new()
 	sub.text = "carry the light home"
-	sub.modulate = Color(1, 1, 1, 0.7)
+	sub.modulate = Color(1, 1, 1, 0.9)
 	sub.add_theme_font_size_override("font_size", 22)
 	col.add_child(sub)
 	var spacer := Control.new()
@@ -95,6 +122,16 @@ func _build_ui() -> void:
 func _clear_pages() -> void:
 	for c in _pages.get_children():
 		c.queue_free()
+
+
+## A solid backing panel for sub-pages so text stays readable over the 3D backdrop.
+func _panel_page() -> VBoxContainer:
+	var p := PanelContainer.new()
+	_pages.add_child(p)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	p.add_child(v)
+	return v
 
 
 func _show_main() -> void:
@@ -123,9 +160,7 @@ func _new_game() -> void:
 		start_level.emit(1, false)
 		return
 	_clear_pages()
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	_pages.add_child(v)
+	var v := _panel_page()
 	var l := Label.new()
 	l.text = "Start over? Your unlocked chapters and best times will be erased."
 	v.add_child(l)
@@ -135,11 +170,9 @@ func _new_game() -> void:
 
 func _show_chapters() -> void:
 	_clear_pages()
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	_pages.add_child(v)
+	var v := _panel_page()
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(700, 560)
+	scroll.custom_minimum_size = Vector2(700, 420)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(scroll)
 	var list := VBoxContainer.new()
@@ -162,17 +195,28 @@ func _show_chapters() -> void:
 		if locked:
 			text += "   ·  locked"
 		elif info.get("done", false):
-			var chal: Dictionary = info.get("challenges", {})
-			var n := chal.values().filter(func(x): return x).size()
-			text += "   ·  best %s  ·  challenges %d/3  ·  fragments %d/5" % [Levels.format_time(float(info.get("best", 0))), n, Progress.fragments(id).size()]
+			text += "   ·  best %s  ·  fragments %d/5" % [Levels.format_time(float(info.get("best", 0))), Progress.fragments(id).size()]
 		var b := UITheme.button(text, func(): start_level.emit(id, false), 640)
+		if info.get("done", false):
+			var chal: Dictionary = info.get("challenges", {})
+			var sr := StarRow.new().setup([chal.get("flawless", false), chal.get("time", false), chal.get("fragments", false)], 12.0)
+			var w := sr.custom_minimum_size.x
+			var h := sr.custom_minimum_size.y
+			sr.anchor_left = 1.0
+			sr.anchor_right = 1.0
+			sr.anchor_top = 0.5
+			sr.anchor_bottom = 0.5
+			sr.offset_left = -w - 14.0
+			sr.offset_right = -14.0
+			sr.offset_top = -h / 2.0
+			sr.offset_bottom = h / 2.0
+			b.add_child(sr)
 		b.disabled = locked
-		b.tooltip_text = Levels.LIST[i]["sub"]
 		v.add_child(b)
 		var d := Label.new()
-		d.text = "      " + Levels.LIST[i]["sub"]
-		d.modulate.a = 0.55
-		d.add_theme_font_size_override("font_size", 15)
+		d.text = "     " + Levels.LIST[i]["sub"]
+		d.modulate = Color(1, 0.94, 0.86, 0.6 if locked else 0.88)
+		d.add_theme_font_size_override("font_size", 16)
 		v.add_child(d)
 	outer.add_child(UITheme.button("Back", _show_main))
 

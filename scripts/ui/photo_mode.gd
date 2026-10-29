@@ -10,6 +10,7 @@ var _yaw := 0.0
 var _pitch := 0.0
 var _help: Label
 var _hour_label: Label
+var _saved_hour := 0.0
 
 
 func _ready() -> void:
@@ -23,6 +24,7 @@ func _ready() -> void:
 	session.add_child(cam)
 	if src:
 		cam.global_transform = src.global_transform
+	_saved_hour = session.cycle.hour
 	_yaw = cam.rotation.y
 	_pitch = cam.rotation.x
 	cam.make_current()
@@ -82,6 +84,9 @@ func _process(dt: float) -> void:
 
 
 func _close() -> void:
+	# Photo-mode time changes are only for the picture; the game resumes at its own time.
+	session.cycle.hour = _saved_hour
+	session.cycle._apply()
 	session.hud.visible = true
 	session.player.camera.make_current()
 	cam.queue_free()

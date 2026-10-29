@@ -60,7 +60,7 @@ static func _build(mat_name: String) -> Material:
 		"cloth_dark":
 			return surface({"color_a": Color(0.08, 0.05, 0.05), "color_b": Color(0.1, 0.06, 0.06)})
 		"mask":
-			return surface({"color_a": Color(0.94, 0.9, 0.82), "color_b": Color(0.9, 0.86, 0.78),
+			return surface({"color_a": Color(0.86, 0.82, 0.74), "color_b": Color(0.82, 0.78, 0.7),
 				"roughness_value": 0.45, "specular_value": 0.5})
 		"eye":
 			var e := StandardMaterial3D.new()
@@ -176,6 +176,15 @@ static func _build(mat_name: String) -> Material:
 			ls.shader = FOLIAGE
 			ls.set_shader_parameter("snow", 0.85)
 			return ls
+		"paint":
+			return surface({"color_a": Color(0.72, 0.12, 0.1), "color_b": Color(0.65, 0.1, 0.08), "roughness_value": 0.6})
+		"grass_ash":
+			return surface({"color_a": Color(0.24, 0.21, 0.2), "color_b": Color(0.3, 0.25, 0.22), "noise_scale": 0.08,
+				"top_color": Color(0.9, 0.35, 0.1), "top_amount": 0.0, "emission_amount": 0.02})
+		"rock_ash":
+			return surface({"color_a": Color(0.2, 0.17, 0.17), "color_b": Color(0.12, 0.1, 0.1), "noise_scale": 0.12,
+				"strata": 0.7, "strata_freq": 2.0, "top_color": Color(0.85, 0.3, 0.08), "top_amount": 0.25, "top_threshold": 0.75,
+				"emission_amount": 0.05})
 		"scarf":
 			var sc := ShaderMaterial.new()
 			sc.shader = preload("res://shaders/scarf.gdshader")

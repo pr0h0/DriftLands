@@ -28,7 +28,24 @@ var _islands: Array = []  # {pos, r, grass, flowers}
 var _followers: Array[Node3D] = []  # effects that track the player (rain, motes)
 var rng := RandomNumberGenerator.new()
 var prop_overrides := {}
-var biome := {}  # island material swaps used for secret islets (e.g. {"grass": "grass_sand", "rock": "rock_sand"})  # biome material swaps for props (e.g. {"leaf": "leaf_snow"})
+var biome := {}
+## When true, generic props are swapped for Quaternius nature models (see NATURE).
+var nature := false
+const NATURE := {
+	"tree_a": ["CommonTree_1", "CommonTree_2", "CommonTree_3", "CommonTree_4", "CommonTree_5"],
+	"tree_b": ["CommonTree_2", "CommonTree_4", "TwistedTree_2"],
+	"pine_a": ["Pine_1", "Pine_2", "Pine_3"],
+	"pine_b": ["Pine_4", "Pine_5"],
+	"dead_tree": ["DeadTree_1", "DeadTree_2", "DeadTree_3"],
+	"bush_a": ["Bush_Common"],
+	"bush_b": ["Bush_Common", "Fern_1"],
+	"bush_flower": ["Bush_Common_Flowers"],
+	"rock_a": ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"],
+	"rock_b": ["Rock_Medium_2", "Rock_Medium_3"],
+	"rock_c": ["Rock_Medium_1"],
+}
+const FLORA := ["Fern_1", "Plant_1", "Plant_7", "Flower_3_Group", "Flower_4_Group", "Mushroom_Common", "Mushroom_Laetiporus",
+	"Clover_1", "Grass_Common_Tall", "Pebble_Round_1", "Pebble_Round_3", "Pebble_Square_2"]  # island material swaps used for secret islets (e.g. {"grass": "grass_sand", "rock": "rock_sand"})  # biome material swaps for props (e.g. {"leaf": "leaf_snow"})
 
 
 # ------------------------------------------------------------ overridables
@@ -71,6 +88,8 @@ func build() -> void:
 	for isl in _islands:
 		if isl.grass != "":
 			_grass(isl)
+			if nature and isl.grass == "grass":
+				_flora(isl)
 
 
 func island(asset: String, pos: Vector3, yaw: float, r: float, opts := {}) -> Node3D:
@@ -125,6 +144,10 @@ func put(asset: String, x: float, z: float, near_y: float, yaw := 0.0, s := 1.0,
 	var hit := ground(x, z, near_y + 25.0)
 	if hit.is_empty():
 		return null
+	if nature and NATURE.has(asset):
+		var pool: Array = NATURE[asset]
+		asset = "nature/" + pool[rng.randi() % pool.size()]
+		s *= 0.85
 	var n := Assets.spawn(asset, collide, 2, false, prop_overrides)
 	n.position = hit.position - Vector3(0, sink * s, 0)
 	n.rotation.y = yaw
@@ -518,10 +541,12 @@ func stone(x: float, z: float, near_y: float) -> PushStone:
 	return s
 
 
-func mirror(x: float, z: float, near_y: float, step := 0) -> Mirror:
+## `base_yaw` aligns the mirror's 45° steps with a puzzle laid out at an angle.
+func mirror(x: float, z: float, near_y: float, step := 0, base_yaw := 0.0) -> Mirror:
 	var m := Mirror.new()
 	m.step = step
 	m.position = ground_pos(x, z, near_y)
+	m.rotation.y = base_yaw
 	add_child(m)
 	return m
 
@@ -748,13 +773,32 @@ func _grass(isl: Dictionary) -> void:
 			bcol.append(Color(v, v, v))
 	var kind: String = isl.grass
 	var blade_mat: String = {"grass_gold": "grass_blades_gold", "grass_storm": "grass_blades_storm", "grass_snow": "grass_blades_snow",
-		"grass_sand": "grass_blades_sand", "grass_crystal": "grass_blades_crystal"}.get(kind, "grass_blades")
+		"grass_sand": "grass_blades_sand", "grass_crystal": "grass_blades_crystal", "grass_ash": "grass_blades_storm"}.get(kind, "grass_blades")
 	_multimesh(_blade_mesh(), blades, bcol, blade_mat)
 	if not flowers.is_empty():
 		_multimesh(_blade_mesh(true), flowers, fcol, "flowers")
 		var bf := FX.butterflies(Vector3(r * 0.6, 1.5, r * 0.6))
 		bf.position = c + Vector3(0, 2.0, 0)
 		add_child(bf)
+
+
+## Scatters small Quaternius plants, flowers, mushrooms and pebbles over an island.
+func _flora(isl: Dictionary) -> void:
+	var c: Vector3 = isl.pos
+	var r: float = isl.r
+	var n := int(r * r * 0.18 * Settings.grass_density())
+	for i in n:
+		var a := rng.randf() * TAU
+		var d := sqrt(rng.randf()) * r * 1.05
+		var hit := ground(c.x + cos(a) * d, c.z + sin(a) * d, c.y + 15.0, 1 | 2)
+		if hit.is_empty() or not hit.collider.has_meta("terrain") or hit.normal.y < 0.8:
+			continue
+		var m: String = FLORA[rng.randi() % FLORA.size()]
+		var f := Assets.spawn("nature/" + m, false)
+		f.position = hit.position - Vector3(0, 0.05, 0)
+		f.rotation.y = rng.randf() * TAU
+		f.scale = Vector3.ONE * rng.randf_range(0.45, 0.8) * (0.6 if m.begins_with("Flower") or m.begins_with("Grass") else 1.0)
+		add_child(f)
 
 
 func _multimesh(mesh: Mesh, xforms: Array[Transform3D], colors: Array[Color], mat: String) -> void:

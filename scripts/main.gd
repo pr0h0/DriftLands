@@ -17,6 +17,9 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var kv := String(arg).trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	if args.has("uitest"):
+		await _ui_test(args)
+		return
 	if args.has("level"):
 		start_level(int(args["level"]), args.has("resume"), args)
 	else:
@@ -31,6 +34,30 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F11:
 		Settings.toggle_fullscreen()
+
+
+## Debug: render the complete screen or the chapters list with sample progress (nothing is saved).
+func _ui_test(args: Dictionary) -> void:
+	Progress.data = {"unlocked": 5, "checkpoint": {}, "levels": {
+		"1": {"done": true, "best": 201.0, "challenges": {"flawless": true, "time": true, "fragments": true}, "fragments": [0, 1, 2, 3, 4]},
+		"2": {"done": true, "best": 412.0, "challenges": {"flawless": false, "time": true, "fragments": false}, "fragments": [0, 2]},
+		"3": {"done": true, "best": 380.0, "challenges": {"flawless": true, "time": false, "fragments": false}, "fragments": [1]},
+		"4": {"done": true, "best": 455.0, "challenges": {}, "fragments": []}}}
+	if args["uitest"] == "complete":
+		var bg := TitleScreen.new()
+		add_child(bg)
+		await get_tree().create_timer(1.0).timeout
+		bg.get_child(bg.get_child_count() - 1).visible = false
+		add_child(CompleteScreen.new().setup(2, 245.0, true, {"flawless": true, "time": true, "fragments": false}, 360.0))
+	else:
+		var t := TitleScreen.new()
+		add_child(t)
+		await get_tree().create_timer(1.0).timeout
+		t._show_chapters()
+	for i in 200:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(args["shot"])
+	get_tree().quit()
 
 
 func _build_veil() -> void:

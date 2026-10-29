@@ -9,6 +9,16 @@ bridges, prism splitting, resonance bells, compass, button states) is being buil
 - Photo mode, night-sky constellations, turning causeways + levers, chapter II (Frostveil,
   Sunken Sky, Glass Expanse) with snow/desert/crystal biomes and aurora, Windward Reach landmarks.
 
+## Next up (agreed)
+- Main character face/mask rework (in progress), then
+- Home menu text readability pass: chapter list descriptions/locked entries are barely readable over the
+  3D backdrop (needs stronger backing panel/contrast, larger type).
+
+## Done since (2026-10-30)
+- Chapter II expanded to 7 levels and Chapter III (7 levels) added, built with the route kit
+  (scripts/levels/level_kit.gd): hops derived from glide physics, auto return vents, auto extras.
+  Run `godot --headless -- --level=N --audit` to sanity-check any level.
+
 ## Later: worth doing (real chunks of work)
 - **Wind surfing**: curved/spiraling wind currents along splines that carry the glider. Top pick.
 - **Tilting islands** (rotation is done as turning causeways; tilting not yet).

@@ -36,6 +36,7 @@ var interact_target: Node3D
 var debug_dir := Vector3.ZERO  # probe/testing: forced movement direction
 var debug_block := false
 var debug_dive := false
+var model_asset := "wanderer"
 
 var model: Node3D
 var glider: Node3D
@@ -89,7 +90,7 @@ func _ready() -> void:
 	model = Node3D.new()
 	add_child(model)
 	model.rotation.y = yaw
-	model.add_child(Assets.spawn("wanderer", false))
+	model.add_child(Assets.spawn(model_asset, false))
 	glider = Assets.spawn("glider", false)
 	glider.position = Vector3(0, 1.95, 0)
 	glider.rotation.x = 0.3

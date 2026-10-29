@@ -7,10 +7,45 @@ static var _shapes: Dictionary = {}
 
 
 static func spawn(asset_name: String, collide := true, layer := 2, terrain := false, overrides := {}) -> Node3D:
+	if asset_name.begins_with("nature/"):
+		return _spawn_nature(asset_name.trim_prefix("nature/"), collide, layer)
 	if not _scenes.has(asset_name):
 		_scenes[asset_name] = load("res://assets/models/%s.glb" % asset_name)
 	var root: Node3D = (_scenes[asset_name] as PackedScene).instantiate()
 	_prepare(root, collide, layer, terrain, overrides)
+	return root
+
+
+## Quaternius Stylized Nature MegaKit models (CC0, assets/nature). They keep their own
+## textured materials; trees get a trunk collider, rocks full collision, plants none.
+static func _spawn_nature(model: String, collide: bool, layer: int) -> Node3D:
+	var key := "nature/" + model
+	if not _scenes.has(key):
+		_scenes[key] = load("res://assets/nature/%s.gltf" % model)
+	var root: Node3D = (_scenes[key] as PackedScene).instantiate()
+	if not collide:
+		return root
+	var body := StaticBody3D.new()
+	body.collision_layer = layer
+	if model.contains("Tree") or model.begins_with("Pine"):
+		var cs := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = 0.35
+		cyl.height = 4.0
+		cs.shape = cyl
+		cs.position.y = 2.0
+		body.add_child(cs)
+	elif model.begins_with("Rock"):
+		for mi in root.find_children("*", "MeshInstance3D", true, false):
+			var cs := CollisionShape3D.new()
+			if not _shapes.has(mi.mesh):
+				_shapes[mi.mesh] = mi.mesh.create_trimesh_shape()
+			cs.shape = _shapes[mi.mesh]
+			cs.transform = mi.transform
+			body.add_child(cs)
+	else:
+		return root
+	root.add_child(body)
 	return root
 
 

@@ -31,6 +31,8 @@ var _photo: PhotoMode
 
 
 func _ready() -> void:
+	# Main runs while paused (for F11); the game world itself must stop when paused.
+	process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_to_group("session")
 	if args.has("hud"):
 		Settings.values["hud_layout"] = int(args["hud"])
@@ -48,6 +50,8 @@ func _ready() -> void:
 	await level.build()
 
 	player = Player.new()
+	if args.has("mask"):
+		player.model_asset = "wanderer_" + String(args["mask"])
 	player.position = level.spawn_point
 	player.yaw = level.spawn_yaw
 	player.kill_y = level.kill_y
@@ -90,6 +94,22 @@ func _ready() -> void:
 		return
 	if args.has("probe"):
 		await _probe()
+		return
+	if args.has("phototest"):
+		var start := player.global_position
+		open_photo_mode()
+		Input.action_press("move_forward")
+		for i in 60:
+			await get_tree().process_frame
+		Input.action_release("move_forward")
+		print("PHOTOTEST player moved %.2f m, camera moved %.2f m" % [player.global_position.distance_to(start), _photo.cam.global_position.distance_to(player.camera.global_position)])
+		get_tree().quit()
+		return
+	if args.has("mirrortest"):
+		await _mirror_test()
+		return
+	if args.has("audit"):
+		await _audit()
 		return
 	if args.has("beamtrace"):
 		var em: BeamEmitter = level.find_children("*", "BeamEmitter", true, false)[int(args["beamtrace"])]
@@ -217,7 +237,7 @@ func _on_died(cost_life := true) -> void:
 		return
 	if not Settings.get_v("challenge"):
 		hud.flash(0.9, Color(0.1, 0.05, 0.1))
-		var p := checkpoint_pos if player.has_ground(checkpoint_pos) else level.spawn_point
+		var p := level.spawn_point
 		player.teleport(p)
 		player.last_safe = p
 		player.heal_full()
@@ -381,6 +401,70 @@ func _probe() -> void:
 	get_tree().quit()
 
 
+## For each beam receiver, brute-forces the mirrors near it and reports whether any setting lights it.
+func _mirror_test() -> void:
+	for i in 4:
+		await get_tree().physics_frame
+	var all_m := level.find_children("*", "Mirror", true, false)
+	var out := []
+	for r: BeamReceiver in get_tree().get_nodes_in_group("beam_receiver"):
+		var near := all_m.filter(func(m): return m.global_position.distance_to(r.global_position) < 16.0)
+		var ok := near.is_empty() and r.lit
+		var start: Array = near.map(func(m): return m.step)
+		var found := ""
+		for c in int(pow(8, near.size())):
+			var k := c
+			for m: Mirror in near:
+				m.step = k % 8
+				k /= 8
+				Assets.find(m, "MirrorFrame").rotation.y = m.step * PI / 4.0
+			for i in 3:
+				await get_tree().physics_frame
+			if r.lit:
+				ok = true
+				found = str(near.map(func(m): return m.step))
+				break
+		out.append("receiver %s mirrors=%d start=%s -> %s %s" % [r.global_position.snappedf(1), near.size(), start, "SOLVABLE" if ok else "UNSOLVABLE", found])
+	print("MIRRORTEST level %d:\n  %s" % [level_id, "\n  ".join(out) if not out.is_empty() else "(no receivers)"])
+	get_tree().quit()
+
+
+## Level sanity audit: overlapping islands, things without ground, shard/fragment counts.
+func _audit() -> void:
+	for i in 4:
+		await get_tree().physics_frame
+	var issues := []
+	var isl: Array = level._islands
+	for i in isl.size():
+		for j in range(i + 1, isl.size()):
+			var a: Dictionary = isl[i]
+			var b: Dictionary = isl[j]
+			var hd := Vector2(a.pos.x - b.pos.x, a.pos.z - b.pos.z).length()
+			if hd < a.r + b.r + 2.0 and absf(a.pos.y - b.pos.y) < 20.0:
+				issues.append("islands overlap: %s r%.0f / %s r%.0f (dist %.1f)" % [a.pos.snappedf(1), a.r, b.pos.snappedf(1), b.r, hd])
+	var space := get_world_3d().direct_space_state
+	var check := func(label: String, p: Vector3, reach: float):
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 0.5, p + Vector3.DOWN * reach, 1 | 2))
+		if hit.is_empty():
+			issues.append("%s has no ground near %s" % [label, p.snappedf(0.1)])
+	for s in level.shards:
+		check.call("shard", s.global_position, 4.0)
+	for u in level.find_children("*", "Updraft", true, false):
+		check.call("vent", u.global_position, 2.0)
+	for n in level.find_children("*", "LaunchPad", true, false) + level.find_children("*", "Lever", true, false) + level.find_children("*", "Bell", true, false) + level.find_children("*", "Mushroom", true, false):
+		check.call(n.get_class() if n.get_script() == null else n.get_script().get_global_name(), n.global_position, 2.0)
+	for st in get_tree().get_nodes_in_group("push_stone"):
+		check.call("push stone", st.global_position, 2.0)
+	for pl in level.find_children("*", "PressurePlate", true, false):
+		check.call("plate", pl.global_position, 2.0)
+	if level.shards.size() != 3:
+		issues.append("shards: %d" % level.shards.size())
+	if level.fragments.size() != 5:
+		issues.append("fragments: %d" % level.fragments.size())
+	print("AUDIT level %d: %s" % [level_id, "OK" if issues.is_empty() else "\n  " + "\n  ".join(issues)])
+	get_tree().quit()
+
+
 ## Brute-forces every mirror orientation and reports which ones light all receivers.
 func _beam_test() -> void:
 	var mirrors := level.find_children("*", "Mirror", true, false)
@@ -425,6 +509,14 @@ func _screenshot() -> void:
 	player.model.rotation.y = player.yaw
 	if args.has("glide"):
 		player.set_gliding(true)
+	if args.has("freeze"):
+		# Hold a pose for portraits: open glider fully, lean, stop physics.
+		if player.gliding:
+			player._glide_amount = 1.0
+			player.glider.visible = true
+			player.glider.scale = Vector3.ONE
+			player.model.rotation.x = -0.3
+		player.set_physics_process(false)
 	if args.has("wisp"):
 		var w := Wisp.new()
 		w.home = _vec(args["wisp"])

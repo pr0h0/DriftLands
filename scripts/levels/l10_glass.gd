@@ -90,4 +90,4 @@ func _extras() -> void:
 
 func on_start() -> void:
 	await get_tree().create_timer(6.0).timeout
-	session.first_hint("l10", "The last beacon of the Far Reaches. Everything you've learned, all at once.")
+	session.first_hint("l10", "The crystal heart of the Far Reaches. Everything you've learned, all at once.")

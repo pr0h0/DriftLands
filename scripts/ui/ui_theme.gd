@@ -44,28 +44,39 @@ static func get_theme() -> Theme:
 	t.default_font = ui_font()
 	t.default_font_size = 20
 	t.set_color("font_color", "Label", CREAM)
+	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.55))
+	t.set_constant("shadow_offset_x", "Label", 0)
+	t.set_constant("shadow_offset_y", "Label", 2)
+	t.set_constant("shadow_outline_size", "Label", 4)
 	for cls in ["Button", "OptionButton", "CheckBox"]:
 		t.set_color("font_color", cls, CREAM)
 		t.set_color("font_hover_color", cls, GOLD)
 		t.set_color("font_focus_color", cls, GOLD)
 		t.set_color("font_pressed_color", cls, Color.WHITE)
-		t.set_color("font_disabled_color", cls, Color(1, 1, 1, 0.3))
-	t.set_stylebox("normal", "Button", _box(Color(1, 1, 1, 0.05)))
-	var hover := _box(Color(1, 0.85, 0.6, 0.2), 12, Color(1, 0.85, 0.6, 0.85), 0)
+		t.set_color("font_disabled_color", cls, Color(1, 0.96, 0.9, 0.5))
+		t.set_color("font_outline_color", cls, Color(0.05, 0.03, 0.06, 0.6))
+		t.set_constant("outline_size", cls, 3)
+	t.set_stylebox("normal", "Button", _box(Color(0.07, 0.05, 0.09, 0.6)))
+	var hover := _box(Color(0.32, 0.22, 0.14, 0.82), 12, Color(1, 0.85, 0.6, 0.9), 0)
 	hover.border_width_left = 4
 	hover.content_margin_left = 26
 	t.set_stylebox("hover", "Button", hover)
 	var pressed := hover.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(1, 0.85, 0.6, 0.34)
+	pressed.bg_color = Color(0.42, 0.3, 0.18, 0.9)
 	t.set_stylebox("pressed", "Button", pressed)
 	var focus := _box(Color(0, 0, 0, 0), 12, Color(1, 0.85, 0.6, 0.85), 0)
 	focus.border_width_left = 4
 	t.set_stylebox("focus", "Button", focus)
-	t.set_stylebox("disabled", "Button", _box(Color(1, 1, 1, 0.02)))
+	t.set_stylebox("disabled", "Button", _box(Color(0.05, 0.04, 0.06, 0.45)))
 	t.set_stylebox("normal", "OptionButton", _box(Color(1, 1, 1, 0.07)))
 	t.set_stylebox("hover", "OptionButton", _box(Color(1, 0.85, 0.6, 0.16)))
 	t.set_stylebox("pressed", "OptionButton", _box(Color(1, 0.85, 0.6, 0.22)))
-	t.set_stylebox("panel", "PanelContainer", _box(Color(0.06, 0.05, 0.08, 0.78), 18))
+	var panel := _box(Color(0.06, 0.05, 0.08, 0.84), 18)
+	panel.content_margin_left = 24
+	panel.content_margin_right = 24
+	panel.content_margin_top = 18
+	panel.content_margin_bottom = 18
+	t.set_stylebox("panel", "PanelContainer", panel)
 	t.set_stylebox("panel", "PopupMenu", _box(Color(0.08, 0.07, 0.1, 0.96), 10))
 	t.set_stylebox("panel", "TabContainer", _box(Color(0, 0, 0, 0), 0))
 	t.set_stylebox("tab_selected", "TabContainer", _box(Color(1, 0.85, 0.6, 0.18), 10))

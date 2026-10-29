@@ -28,7 +28,12 @@ func setup(level_id: int, time: float, new_best: bool, ch := {}, par := 0.0) -> 
 	v.add_theme_constant_override("separation", 10)
 	panel.add_child(v)
 	var last := level_id >= Levels.count()
-	v.add_child(UITheme.title_label("Beacon lit" if not last else "The storm breaks", 56))
+	var stars := StarRow.new().setup([ch.get("flawless", false), ch.get("time", false), ch.get("fragments", false)], 34.0)
+	v.add_child(stars)
+	stars.pop_in(0.9)
+	var t2 := UITheme.title_label("Beacon lit" if not last else "The last light returns", 56)
+	t2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t2)
 	var info := Label.new()
 	var best := float(Progress.level_info(level_id).get("best", time))
 	info.text = "%s\nTime  %s%s\nBest  %s" % [Levels.LIST[level_id - 1]["title"], Levels.format_time(time),

@@ -17,6 +17,7 @@ func push(dir: Vector3) -> void:
 
 
 func _ready() -> void:
+	add_to_group("push_stone")
 	collision_layer = 8
 	collision_mask = 1 | 2 | 4 | 8
 	mass = 30.0

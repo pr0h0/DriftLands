@@ -9,6 +9,7 @@ func _init() -> void:
 	mood = "dawn"
 	sky = {"hour": 17.3, "day_length": 1200.0}
 	spawn_point = Vector3(0, 1.5, 13.5)
+	nature = true
 
 
 func islands() -> void:

@@ -809,9 +809,27 @@ def _():
 
 # ---------------------------------------------------------------- character
 
-@asset("wanderer")
-def _():
-    b = Builder(["cloth", "trim", "cloth_dark", "mask", "eye"])
+def slit(b, cx, cy, cz, half_w, half_h, tilt, depth, m):
+    """Tapered almond-shaped slit (pointed ends) facing +Y, as a thin prism."""
+    pts = []
+    n = 10
+    for k in range(n):
+        a = k / n * math.tau
+        x = math.cos(a) * half_w
+        z = math.sin(a) * half_h * (1.0 - 0.55 * abs(math.cos(a)) ** 2)
+        xr = x * math.cos(tilt) - z * math.sin(tilt)
+        zr = x * math.sin(tilt) + z * math.cos(tilt)
+        pts.append((cx + xr, cz + zr))
+    cos = [(x, cy - depth, z) for x, z in pts] + [(x, cy + depth, z) for x, z in pts]
+    faces = [tuple(range(n)), tuple(range(2 * n - 1, n - 1, -1))]
+    for k in range(n):
+        kn = (k + 1) % n
+        faces.append((k, kn, n + kn, n + k))
+    b.solid(cos, faces, m)
+
+
+def build_wanderer(mask="classic"):
+    b = Builder(["cloth", "trim", "cloth_dark", "mask", "eye", "paint"])
     bm = b.bm
     S = 18
     levels = [(0.0, 0.44), (0.1, 0.42), (0.17, 0.405), (0.42, 0.34), (0.7, 0.27), (0.95, 0.2), (1.12, 0.14)]
@@ -837,16 +855,94 @@ def _():
     b.tag(cloth, "cloth", smooth=True)
     b.tag(trim, "trim", smooth=True)
 
-    b.uvsphere((0, 0.02, 1.3), 0.17, m="cloth_dark")
+    deep = mask != "classic"
     hood_c = Vector((0, -0.02, 1.33))
-    hv = b.uvsphere(hood_c, 0.205, u=18, v=12, scale=(1, 1.05, 1.1), m="cloth")
-    front = [f for f in b.faces_of(hv) if (f.calc_center_median() - hood_c).normalized().y > 0.5]
-    bmesh.ops.delete(bm, geom=front, context='FACES')
+    if deep:
+        # Cowl: an outer cloth shell and an inner dark lining (same topology, so the oval face
+        # opening matches), joined by a rolled lip. The lining faces inward so it reads as the
+        # shadowed inside of the hood and can never poke through the outside.
+        def opening(f, c):
+            n = (f.calc_center_median() - c).normalized()
+            return n.y > 0.05 and (n.x / 0.6) ** 2 + ((n.z + 0.08) / 0.78) ** 2 < 1.0
+        outer = b.uvsphere(hood_c, 0.205, u=32, v=20, scale=(1, 1.08, 1.12), m="cloth")
+        inner = b.uvsphere(hood_c, 0.188, u=32, v=20, scale=(1, 1.08, 1.12), m="cloth_dark")
+        o_faces = [f for f in b.faces_of(outer) if opening(f, hood_c)]
+        i_faces = [f for f in b.faces_of(inner) if opening(f, hood_c)]
+        bmesh.ops.delete(bm, geom=o_faces + i_faces, context='FACES')
+        inner_live = [v for v in inner if v.is_valid]
+        outer_live = [v for v in outer if v.is_valid]
+        # Smooth each opening edge into a clean curve (removes the stair-steps left by
+        # deleting whole faces), keeping the points on their shell's surface.
+        sc = Vector((1, 1.08, 1.12))
+        for verts, radius in ((outer_live, 0.205), (inner_live, 0.188)):
+            vs = set(verts)
+            loop = [v for v in verts if any(e.is_boundary for e in v.link_edges)]
+            for _ in range(10):
+                new = {}
+                for v in loop:
+                    nb = [e.other_vert(v) for e in v.link_edges if e.is_boundary and e.other_vert(v) in vs]
+                    if len(nb) == 2:
+                        new[v] = v.co * 0.4 + (nb[0].co + nb[1].co) * 0.3
+                for v, co in new.items():
+                    d = Vector(((co - hood_c).x / sc.x, (co - hood_c).y / sc.y, (co - hood_c).z / sc.z)).normalized() * radius
+                    v.co = hood_c + Vector((d.x * sc.x, d.y * sc.y, d.z * sc.z))
+        bmesh.ops.reverse_faces(bm, faces=b.faces_of(inner_live))
+        rim = [e for e in bm.edges if e.is_boundary and (e.verts[0] in outer_live or e.verts[0] in inner_live)]
+        lip = bmesh.ops.bridge_loops(bm, edges=rim)
+        b.tag(lip["faces"], "cloth", smooth=True)
+    else:
+        b.uvsphere((0, 0.02, 1.3), 0.17, m="cloth_dark")
+        hv = b.uvsphere(hood_c, 0.205, u=18, v=12, scale=(1, 1.05, 1.1), m="cloth")
+        front = [f for f in b.faces_of(hv) if (f.calc_center_median() - hood_c).normalized().y > 0.5]
+        bmesh.ops.delete(bm, geom=front, context='FACES')
     b.cyl((0, -0.31, 1.47), 0.11, 0.01, 0.3, segs=8, rot=(0.93, 0, 0), m="cloth", smooth=True)
-    b.uvsphere((0, 0.115, 1.3), 0.14, scale=(1, 0.45, 1.15), m="mask")
-    for sx in (-1, 1):
-        b.ico((sx * 0.05, 0.178, 1.32), 0.022, sub=1, scale=(1.5, 0.5, 0.7), m="eye")
+
+    if mask == "classic":
+        b.uvsphere((0, 0.115, 1.3), 0.14, scale=(1, 0.45, 1.15), m="mask")
+        for sx in (-1, 1):
+            b.ico((sx * 0.05, 0.178, 1.32), 0.022, sub=1, scale=(1.5, 0.5, 0.7), m="eye")
+    elif mask in ("hidden", "ritual"):
+        mc = (0, 0.07, 1.285)
+        b.uvsphere(mc, 0.12, u=18, v=12, scale=(0.82, 0.42, 1.32), m="mask")
+        fy = mc[1] + 0.12 * 0.42
+        for sx in (-1, 1):
+            # Two carved almond slits; a thinner warm core glows inside each.
+            slit(b, sx * 0.04, fy - 0.001, 1.315, 0.03, 0.0085, -sx * 0.26, 0.006, "cloth_dark")
+            slit(b, sx * 0.04, fy + 0.004, 1.315, 0.022, 0.0035, -sx * 0.26, 0.003, "eye")
+        if mask == "ritual":
+            b.box((0, fy - 0.002, 1.255), (0.012, 0.012, 0.12), m="paint")
+            b.box((0, fy - 0.004, 1.36), (0.05, 0.012, 0.01), m="paint")
+            for sx in (-1, 1):
+                b.box((sx * 0.04, fy - 0.006, 1.275), (0.008, 0.012, 0.035), rot=(0, sx * 0.15, 0), m="trim")
+    elif mask == "crescent":
+        mc = Vector((0, 0.075, 1.3))
+        mv = b.uvsphere(mc, 0.135, u=20, v=12, scale=(0.95, 0.42, 1.0), m="mask")
+        lower = [f for f in b.faces_of(mv) if f.calc_center_median().z < mc.z - 0.012 - 0.06 * abs(f.calc_center_median().x) / 0.13]
+        bmesh.ops.delete(bm, geom=lower, context='FACES')
+        fy = mc.y + 0.135 * 0.42
+        b.box((0, fy - 0.004, 1.322), (0.115, 0.014, 0.028), m="cloth_dark")
+        b.box((0, fy + 0.004, 1.322), (0.095, 0.01, 0.01), m="eye")
     b.finish("Wanderer_deco")
+
+
+@asset("wanderer")
+def _():
+    build_wanderer("hidden")
+
+
+@asset("wanderer_hidden")
+def _():
+    build_wanderer("hidden")
+
+
+@asset("wanderer_ritual")
+def _():
+    build_wanderer("ritual")
+
+
+@asset("wanderer_crescent")
+def _():
+    build_wanderer("crescent")
 
 
 @asset("glider")
