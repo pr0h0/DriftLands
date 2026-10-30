@@ -38,6 +38,7 @@ var debug_block := false
 var debug_dive := false
 var carrying: PushStone
 var holding_orb := false  ## a light orb: hands full, no shield, no running
+var _carry_prompt := ""
 var model_asset := ""  # empty = the wardrobe's mask
 
 var model: Node3D
@@ -231,9 +232,6 @@ func _physics_process(dt: float) -> void:
 	else:
 		_jump_buffer -= dt
 
-	if carrying and ((_jump_buffer > 0.0 and on_floor) or (not on_floor and _air_time > 0.3)):
-		drop_carried(not on_floor)
-
 	if _jump_buffer > 0.0 and _coyote > 0.0:
 		velocity.y = JUMP_VELOCITY
 		_coyote = 0.0
@@ -328,13 +326,32 @@ func pick_up(stone: PushStone) -> void:
 	_squash(Vector3(1.1, 0.88, 1.1))
 
 
-## Sets the carried stone down in front (or wherever it is, when dropped in mid-air).
+## A pressure plate just ahead that a carried stone would snap onto (null if none is free).
+func _plate_target() -> Node3D:
+	var ahead := global_position - model.global_basis.z.slide(Vector3.UP).normalized() * 1.25
+	for plate: Node3D in get_tree().get_nodes_in_group("pressure_plate"):
+		var to := plate.global_position - ahead
+		if Vector2(to.x, to.z).length() < 1.9 and absf(to.y) < 1.2 \
+				and Vector2(plate.global_position.x - global_position.x, plate.global_position.z - global_position.z).length() > 1.1:
+			return plate
+	return null
+
+
+## Sets the carried stone down in front (onto a plate right ahead, if there is one), or lets
+## it fall from where it is when dropped in mid-air.
 func drop_carried(in_air: bool) -> void:
 	var stone := carrying
+	if stone == null:
+		return
 	carrying = null
 	interact_target = null
+	_carry_prompt = ""
 	if in_air:
 		stone.set_down(stone.global_position)
+		return
+	var plate := _plate_target()
+	if plate:
+		stone.set_down(plate.global_position + Vector3.UP * 0.17)
 		return
 	var fwd := -model.global_basis.z.slide(Vector3.UP).normalized()
 	var space := get_world_3d().direct_space_state
@@ -446,6 +463,8 @@ func set_gliding(on: bool) -> void:
 	if on == gliding:
 		return
 	gliding = on
+	if on and carrying:
+		drop_carried(true)  # you can jump and fall with a stone, but not fly with one
 	if on:
 		var hv := Vector3(velocity.x, 0, velocity.z)
 		glide_heading = hv.normalized() if hv.length() > 1.0 else -model.global_basis.z.slide(Vector3.UP).normalized()
@@ -608,9 +627,11 @@ func _track_safe(dt: float) -> void:
 
 func _find_interactable() -> void:
 	if carrying:
-		if interact_target != carrying:
-			interact_target = carrying
-			get_tree().call_group("hud", "set_prompt", Settings.prompt("interact", "Set down"))
+		interact_target = carrying
+		var text := "Place on plate" if _plate_target() else "Set down"
+		if text != _carry_prompt:
+			_carry_prompt = text
+			get_tree().call_group("hud", "set_prompt", Settings.prompt("interact", text))
 		return
 	var best: Node3D = null
 	var best_d := 2.8

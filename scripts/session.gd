@@ -164,6 +164,9 @@ func _ready() -> void:
 	if args.has("touchtest"):
 		await _touch_test()
 		return
+	if args.has("carrytest"):
+		await _carry_test()
+		return
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	hud.show_title(level.title, level.subtitle)
 	level.on_start()
@@ -832,6 +835,48 @@ func _beam_test() -> void:
 	print("mirrors=%s receivers=%d" % [mirrors.map(func(m): return m.global_position.snappedf(1)), receivers.size()])
 	for s in solutions:
 		print("  lit ", s)
+	get_tree().quit()
+
+
+## Debug: lift a stone, jump with it, place it on a plate, then open the glider while carrying.
+func _carry_test() -> void:
+	var wait := func(sec: float): await get_tree().create_timer(sec).timeout
+	await wait.call(0.5)
+	var st: PushStone = get_tree().get_nodes_in_group("push_stone")[0]
+	var plates := get_tree().get_nodes_in_group("pressure_plate")
+	plates.sort_custom(func(a, b): return a.global_position.distance_to(st.global_position) < b.global_position.distance_to(st.global_position))
+	var plate: PressurePlate = plates[0]
+	player.teleport(st.global_position + Vector3(1.4, 0.3, 0))
+	await wait.call(0.5)
+	st.interact()
+	await wait.call(0.3)
+	var held_y := st.global_position.y - player.global_position.y
+	player.velocity.y = Player.JUMP_VELOCITY
+	await wait.call(1.2)
+	print("CT jumped: still carrying=%s on_floor=%s stone height=%.2f" % [player.carrying == st, player.is_on_floor(), held_y])
+	# Stand 2.4 m from the plate, facing it, and set the stone down.
+	var away := Vector3(2.4, 0, 0).rotated(Vector3.UP, 0.6)
+	player.teleport(plate.global_position + away + Vector3.UP * 0.3)  # (teleporting sends the stone home)
+	await wait.call(0.5)
+	st.global_position = player.global_position + Vector3(0, 0, 1.5)
+	st.interact()
+	await wait.call(0.2)
+	var d := plate.global_position - player.global_position
+	player.model.rotation.y = atan2(-d.x, -d.z)
+	await get_tree().physics_frame
+	print("CT plate ahead=%s" % (player._plate_target() == plate))
+	player.drop_carried(false)
+	await wait.call(1.0)
+	print("CT on plate=%s offset=%.2f" % [plate.is_on(), Vector2(st.global_position.x - plate.global_position.x, st.global_position.z - plate.global_position.z).length()])
+	# Pick it back up, jump, open the glider: it drops, and not onto the player.
+	st.interact()
+	await wait.call(0.3)
+	player.velocity.y = Player.JUMP_VELOCITY
+	await wait.call(0.3)
+	player.set_gliding(true)
+	await wait.call(1.5)
+	var rel := st.global_position - player.global_position
+	print("CT glide drop: carrying=%s stone above player=%s" % [player.carrying != null, Vector2(rel.x, rel.z).length() < 0.7 and rel.y > 0.5])
 	get_tree().quit()
 
 

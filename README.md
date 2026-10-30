@@ -27,7 +27,7 @@ every sound is synthesized in **Python**. The nature props are Quaternius' CC0 S
 - **Beacon endings**: once the three shards are home, step into the beacon's light and rise out
   of the level. In each chapter finale the island collapses on a timer, and you have to ride the
   rings to an escape platform before it falls.
-- **Carrying**: lift push stones and carry them (drop them by jumping), and bring heavy light
+- **Carrying**: lift push stones and carry them (you can jump with one; opening the glider drops it; set it down facing a plate to place it on the plate), and bring heavy light
   orbs to the beacon by hand. A hit or a fall sends an orb back to its shrine.
 - **Puzzles**: rotating mirrors and light beams, prism splits, pressure plates with push stones,
   sundials, resonance bells, levers with turning causeways, and night-sky constellations.

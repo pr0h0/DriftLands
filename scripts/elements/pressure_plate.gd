@@ -14,6 +14,7 @@ func is_on() -> bool:
 
 
 func _ready() -> void:
+	add_to_group("pressure_plate")
 	var model := Assets.spawn("pressure_plate", true, 2)
 	add_child(model)
 	_plate = Assets.find(model, "Plate_deco") as Node3D

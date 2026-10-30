@@ -1,7 +1,7 @@
 class_name PushStone
 extends RigidBody3D
-## A heavy rune block the player can shove around, or lift and carry (interact). Jumping or
-## leaving the ground drops it. Returns home if it falls off the world.
+## A heavy rune block the player can shove around, or lift and carry in front of them
+## (interact). Opening the glider drops it. Returns home if it falls off the world.
 
 const PUSH_SPEED := 2.4
 
@@ -29,7 +29,7 @@ func lift(by: Player) -> void:
 	collision_layer = 0
 	collision_mask = 0
 	Sound.play_at("plate_on", global_position, -6.0, 0.8)
-	ElUtil.hint(self, "carry", "Carrying a stone: %s sets it down. Jumping or falling drops it." % Settings.key_label("interact"))
+	ElUtil.hint(self, "carry", "Carrying a stone: %s sets it down, onto a plate if you're facing one. You can jump with it; opening the glider drops it." % Settings.key_label("interact"))
 
 
 ## Puts the stone down at `p` (ground level).
@@ -88,7 +88,8 @@ func _ready() -> void:
 
 func _physics_process(dt: float) -> void:
 	if holder:
-		global_position = holder.global_position + Vector3.UP * 1.65
+		var fwd := -holder.model.global_basis.z.slide(Vector3.UP).normalized()
+		global_position = holder.global_position + fwd * 1.0 + Vector3.UP * 0.35  # held in front, chest high
 		rotation.y = holder.model.rotation.y
 		return
 	_push_t -= dt
