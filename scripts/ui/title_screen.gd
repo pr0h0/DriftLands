@@ -220,6 +220,7 @@ func _show_main() -> void:
 	_menu.add_child(UITheme.button("New game", _new_game))
 	_menu.add_child(UITheme.button("Chapters", _show_chapters))
 	_menu.add_child(UITheme.button("Wardrobe", _show_wardrobe))
+	_menu.add_child(UITheme.button("Journal", _show_journal))
 	_menu.add_child(UITheme.button("Settings", _show_settings))
 	_menu.add_child(UITheme.fullscreen_button())
 	if not OS.has_feature("web"):
@@ -359,3 +360,48 @@ func _wardrobe_row(v: VBoxContainer, slot: String) -> void:
 	row.add_child(UITheme.button(">", func(): step.call(1), 48))
 	row.add_child(note)
 	refresh.call()
+
+
+# ------------------------------------------------------------ journal
+
+func _show_journal() -> void:
+	_clear_pages()
+	var v := _panel_page()
+	var found: Array = Progress.data.get("lore", [])
+	var head := UITheme.title_label("Journal", 40)
+	v.add_child(head)
+	var count := Label.new()
+	count.text = "%d / %d pages found  ·  read the carved stone near each beacon" % [found.size(), Lore.ENTRIES.size()]
+	count.modulate = Color(1, 0.94, 0.86, 0.8)
+	count.add_theme_font_size_override("font_size", 16)
+	v.add_child(count)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(700, 380)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 6)
+	scroll.add_child(list)
+	var last_ch := 0
+	for id in range(1, Levels.count() + 1):
+		var ch := Levels.chapter_of(id)
+		if ch != last_ch:
+			last_ch = ch
+			var hl := UITheme.title_label(Levels.CHAPTERS[ch], 26)
+			hl.modulate = UITheme.GOLD
+			list.add_child(hl)
+		var t := Label.new()
+		var have: bool = id in found
+		t.text = "%s   ·   %s" % [Lore.title_of(id) if have else "Unread page", Levels.LIST[id - 1]["title"] if id <= Progress.unlocked() else "?"]
+		t.add_theme_font_size_override("font_size", 19)
+		t.modulate = Color.WHITE if have else Color(1, 1, 1, 0.45)
+		list.add_child(t)
+		if have:
+			var body := Label.new()
+			body.text = Lore.text_of(id)
+			body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			body.custom_minimum_size.x = 660
+			body.modulate = Color(1, 0.94, 0.86, 0.85)
+			body.add_theme_font_size_override("font_size", 16)
+			list.add_child(body)
+	v.add_child(UITheme.button("Back", _show_main, 200))

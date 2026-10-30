@@ -1098,6 +1098,32 @@ def _():
     b.finish("Cairn")
 
 
+@asset("lore_stone")
+def _():
+    """A carved standing tablet whose glyph lines glow (lore / journal entries)."""
+    rnd = random.Random(41)
+    b = Builder(["stone", "rune", "trim"])
+    b.box((0, 0, 0.1), (1.25, 0.7, 0.2), color=stone_color(rnd, -1))
+    w0, w1, t, h = 0.48, 0.4, 0.14, 1.75
+    cos = [(-w0, -t, 0.2), (w0, -t, 0.2), (w1, -t, h), (0.0, -t, h + 0.22), (-w1, -t, h),
+           (-w0, t, 0.2), (w0, t, 0.2), (w1, t, h), (0.0, t, h + 0.22), (-w1, t, h)]
+    b.solid(cos, [(0, 1, 2, 3, 4), (5, 9, 8, 7, 6), (0, 5, 6, 1), (1, 6, 7, 2), (2, 7, 8, 3), (3, 8, 9, 4), (4, 9, 5, 0)],
+            color=stone_color(rnd, 0))
+    for side in (-1, 1):
+        y = side * (t + 0.006)
+        for row in range(6):
+            z = 0.55 + row * 0.19
+            x = -0.3
+            while x < 0.28:
+                wdt = rnd.uniform(0.05, 0.14)
+                if x + wdt > 0.3:
+                    break
+                b.box((x + wdt / 2, y, z), (wdt, 0.012, 0.045 if rnd.random() < 0.7 else 0.09), m="rune")
+                x += wdt + rnd.uniform(0.03, 0.07)
+        b.ico((0, y, h - 0.08), 0.07, sub=1, scale=(1, 0.25, 1), m="rune")
+    b.finish("LoreStone")
+
+
 @asset("sundial")
 def _():
     rnd = random.Random(27)

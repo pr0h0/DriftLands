@@ -659,6 +659,8 @@ func _audit() -> void:
 		check.call("push stone", st.global_position, 2.0)
 	for pl in level.find_children("*", "PressurePlate", true, false):
 		check.call("plate", pl.global_position, 2.0)
+	if level.find_children("*", "LoreStone", true, false).is_empty():
+		issues.append("no lore stone")
 	if level.shards.size() != 3:
 		issues.append("shards: %d" % level.shards.size())
 	if level.fragments.size() != 5:

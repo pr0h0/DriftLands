@@ -90,6 +90,8 @@ func build() -> void:
 		debris(isl.pos, isl.r)
 	await get_tree().physics_frame
 	await get_tree().physics_frame
+	if not decor_only and monolith and Lore.ENTRIES.has(level_id):
+		_place_lore()
 	for isl in _islands:
 		if isl.grass != "":
 			_grass(isl)
@@ -322,6 +324,40 @@ func _place_secrets() -> void:
 		fragment(g + Vector3(1.5, 1.2, -1.0))
 		updraft(c.x + 1.8, c.z + 1.5, c.y, 26.0)
 		fragment(g + Vector3(1.8 + 7.0, 23.0, 1.5))
+
+
+## Finds a clear patch of ground near the beacon for the level's lore stone.
+func _place_lore() -> void:
+	var c := monolith.global_position
+	var space := get_world_3d().direct_space_state
+	var busy: Array = []
+	for t in ["Updraft", "LaunchPad", "Bell", "Mushroom", "Lever", "Sundial", "Mirror", "PressurePlate", "Cairn", "BeamEmitter", "BeamReceiver", "PushStone", "Shard", "Fragment"]:
+		for n in find_children("*", t, true, false):
+			busy.append((n as Node3D).global_position)
+	var box := BoxShape3D.new()
+	box.size = Vector3(1.6, 2.0, 1.2)
+	for ring_r in [14.0, 16.5, 12.5, 19.0]:
+		for k in 20:
+			var a := k * TAU / 20.0 + 0.4
+			var p: Vector3 = c + Vector3(cos(a), 0, sin(a)) * float(ring_r)
+			var hit := ground(p.x, p.z, c.y + 12.0, 1 | 2)
+			if hit.is_empty() or not hit.collider.has_meta("terrain") or (hit.normal as Vector3).y < 0.88:
+				continue
+			var g: Vector3 = hit.position
+			if absf(g.y - c.y) > 3.0 or busy.any(func(b): return Vector2(b.x - g.x, b.z - g.z).length() < 4.5):
+				continue
+			var q := PhysicsShapeQueryParameters3D.new()
+			q.shape = box
+			q.transform = Transform3D(Basis(Vector3.UP, a), g + Vector3.UP * 1.3)
+			q.collision_mask = 1 | 2 | 8
+			if not space.intersect_shape(q, 1).is_empty():
+				continue
+			var ls := LoreStone.new()
+			ls.level_id = level_id
+			ls.position = g - Vector3(0, 0.05, 0)
+			ls.rotation.y = atan2(c.x - g.x, c.z - g.z)
+			add_child(ls)
+			return
 
 
 ## Lights the first `n` dormant posts around the plaza (title island progress).

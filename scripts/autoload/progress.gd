@@ -86,6 +86,14 @@ func clear_checkpoint() -> void:
 	save()
 
 
+func add_lore(id: int) -> void:
+	var l: Array = data.get("lore", [])
+	if not id in l:
+		l.append(id)
+	data["lore"] = l
+	save()
+
+
 func levels_done() -> int:
 	var n := 0
 	for k in data["levels"]:

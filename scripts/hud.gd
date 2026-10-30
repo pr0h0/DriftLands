@@ -18,6 +18,10 @@ var subtitle: Label
 var fade: ColorRect
 var hurt_fx: ColorRect
 var compass: Control
+var lore_panel: PanelContainer
+var _lore_title: Label
+var _lore_text: Label
+var _lore_tween: Tween
 
 var _root: Control
 var _panels: Control
@@ -86,6 +90,8 @@ func _ready() -> void:
 	subtitle.offset_top = 30
 	subtitle.modulate.a = 0.0
 	_root.add_child(subtitle)
+
+	_build_lore_panel()
 
 	fade = ColorRect.new()
 	fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -352,6 +358,49 @@ func set_shards(n: int) -> void:
 	_shards = n
 	meter.count = n
 	meter.pulse = 1.0
+
+
+func _build_lore_panel() -> void:
+	lore_panel = PanelContainer.new()
+	lore_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.04, 0.08, 0.82)
+	sb.border_color = Color(UITheme.GOLD, 0.5)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(16)
+	sb.set_content_margin_all(26)
+	lore_panel.add_theme_stylebox_override("panel", sb)
+	lore_panel.set_anchors_preset(Control.PRESET_CENTER)
+	lore_panel.custom_minimum_size = Vector2(640, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	lore_panel.add_child(v)
+	_lore_title = UITheme.title_label("", 40)
+	_lore_title.modulate = UITheme.GOLD
+	_lore_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_lore_title)
+	_lore_text = Label.new()
+	_lore_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_lore_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lore_text.custom_minimum_size.x = 588
+	_lore_text.add_theme_font_size_override("font_size", 22)
+	v.add_child(_lore_text)
+	lore_panel.modulate.a = 0.0
+	_root.add_child(lore_panel)
+	lore_panel.resized.connect(func(): lore_panel.position = (_root.size - lore_panel.size) / 2.0 - Vector2(0, 80))
+
+
+## A page of the story, read from a lore stone.
+func show_lore(t: String, text: String, first: bool) -> void:
+	_lore_title.text = t
+	_lore_text.text = text + ("\n\n· added to your journal ·" if first else "")
+	lore_panel.position = (_root.size - lore_panel.size) / 2.0 - Vector2(0, 80)
+	if _lore_tween:
+		_lore_tween.kill()
+	_lore_tween = create_tween()
+	_lore_tween.tween_property(lore_panel, "modulate:a", 1.0, 0.6)
+	_lore_tween.tween_interval(maxf(6.0, text.length() * 0.06))
+	_lore_tween.tween_property(lore_panel, "modulate:a", 0.0, 1.2)
 
 
 func flash(strength := 0.85, color := Color(1, 0.97, 0.92)) -> void:
