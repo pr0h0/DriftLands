@@ -32,3 +32,4 @@ anti_aliasing/quality/screen_space_aa=1
 Settings="*res://scripts/autoload/settings.gd"
 Progress="*res://scripts/autoload/progress.gd"
 Sound="*res://scripts/autoload/sound.gd"
+Touch="*res://scripts/autoload/touch.gd"

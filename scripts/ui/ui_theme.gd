@@ -115,7 +115,7 @@ static func title_label(text: String, size: int) -> Label:
 ## A button that toggles fullscreen and keeps its label in sync.
 static func fullscreen_button(min_w := 300) -> Button:
 	var b := button("", func(): Settings.toggle_fullscreen(), min_w)
-	var refresh := func(): b.text = "Exit fullscreen" if Settings.is_fullscreen() else "Fullscreen  (F11)"
+	var refresh := func(): b.text = "Exit fullscreen" if Settings.is_fullscreen() else ("Fullscreen" if Touch.active else "Fullscreen  (F11)")
 	refresh.call()
 	b.pressed.connect(func(): b.get_tree().create_timer(0.3).timeout.connect(refresh))
 	b.visibility_changed.connect(refresh)

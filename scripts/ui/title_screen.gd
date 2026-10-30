@@ -11,6 +11,8 @@ var _t := 0.0
 var _ui: Control
 var _menu: VBoxContainer
 var _pages: Control
+var _margin: MarginContainer
+var _header: VBoxContainer
 var _settings: SettingsMenu
 var wanderer: TitleWanderer
 var _wardrobe := false
@@ -162,31 +164,45 @@ func _build_ui() -> void:
 	shade.offset_right = 1150
 	_ui.add_child(shade)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 110)
-	margin.add_theme_constant_override("margin_top", 90)
-	margin.add_theme_constant_override("margin_bottom", 70)
-	_ui.add_child(margin)
+	_margin = MarginContainer.new()
+	_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ui.add_child(_margin)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 6)
-	margin.add_child(col)
-	col.add_child(UITheme.title_label("Driftlands", 112))
+	_margin.add_child(col)
+	_header = VBoxContainer.new()
+	_header.add_theme_constant_override("separation", 6)
+	col.add_child(_header)
+	_header.add_child(UITheme.title_label("Driftlands", 112))
 	var sub := Label.new()
 	sub.text = "carry the light home"
 	sub.modulate = Color(1, 1, 1, 0.9)
 	sub.add_theme_font_size_override("font_size", 22)
-	col.add_child(sub)
+	_header.add_child(sub)
 	var spacer := Control.new()
 	spacer.custom_minimum_size.y = 40
-	col.add_child(spacer)
+	_header.add_child(spacer)
+	_fit_screen()
+	Touch.toggled.connect(func(_on): _fit_screen())
 	_pages = Control.new()
 	_pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(_pages)
 	_show_main()
 
 
+## Phones (touch UI, 720 logical px tall): tighter margins, a smaller title, and sub-pages
+## hide the title so the taller panels (settings, chapters) fit on screen.
+func _fit_screen() -> void:
+	var compact := Touch.active
+	_margin.add_theme_constant_override("margin_left", 60 if compact else 110)
+	_margin.add_theme_constant_override("margin_top", 24 if compact else 90)
+	_margin.add_theme_constant_override("margin_bottom", 20 if compact else 70)
+	(_header.get_child(0) as Label).label_settings.font_size = 76 if compact else 112
+	_header.get_child(2).custom_minimum_size.y = 14 if compact else 40
+
+
 func _clear_pages() -> void:
+	_header.visible = true
 	for c in _pages.get_children():
 		c.queue_free()
 	if _wardrobe:
@@ -197,6 +213,7 @@ func _clear_pages() -> void:
 
 ## A solid backing panel for sub-pages so text stays readable over the 3D backdrop.
 func _panel_page() -> VBoxContainer:
+	_header.visible = not Touch.active
 	var p := PanelContainer.new()
 	_pages.add_child(p)
 	var v := VBoxContainer.new()
@@ -297,6 +314,7 @@ func _show_chapters() -> void:
 
 func _show_settings() -> void:
 	_clear_pages()
+	_header.visible = not Touch.active
 	_settings = SettingsMenu.new()
 	_settings.closed.connect(_show_main)
 	_pages.add_child(_settings)

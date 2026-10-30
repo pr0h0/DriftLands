@@ -177,13 +177,9 @@ void fragment() {
 func _unhandled_input(event: InputEvent) -> void:
 	if not input_enabled:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens: float = MOUSE_SENS * float(Settings.get_v("mouse_sens"))
-		yaw -= event.relative.x * sens
-		var dy: float = event.relative.y * sens * (-1.0 if Settings.get_v("invert_y") else 1.0)
-		pitch = clamp(pitch - dy, -1.3, 0.6)
-		_mouse_idle = 0.0
-	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not Touch.active:
+		look_by(event.relative, MOUSE_SENS)
+	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not Touch.active:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event.is_action_pressed("respawn"):
 		respawn(false)
@@ -191,6 +187,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		drop_carried(false)
 	elif event.is_action_pressed("interact") and interact_target:
 		interact_target.interact()
+
+
+## Turns the camera by a mouse or touch drag (pixels × radians per pixel at 1.0× sensitivity).
+func look_by(rel: Vector2, per_px: float) -> void:
+	var sens: float = per_px * float(Settings.get_v("mouse_sens"))
+	yaw -= rel.x * sens
+	var dy: float = rel.y * sens * (-1.0 if Settings.get_v("invert_y") else 1.0)
+	pitch = clamp(pitch - dy, -1.3, 0.6)
+	_mouse_idle = 0.0
 
 
 func _physics_process(dt: float) -> void:
@@ -606,7 +611,7 @@ func _find_interactable() -> void:
 	if carrying:
 		if interact_target != carrying:
 			interact_target = carrying
-			get_tree().call_group("hud", "set_prompt", "[%s]  Set down" % Settings.key_label("interact"))
+			get_tree().call_group("hud", "set_prompt", Settings.prompt("interact", "Set down"))
 		return
 	var best: Node3D = null
 	var best_d := 2.8
@@ -617,7 +622,7 @@ func _find_interactable() -> void:
 			best = n
 	if best != interact_target:
 		interact_target = best
-		get_tree().call_group("hud", "set_prompt", "" if best == null else "[%s]  %s" % [Settings.key_label("interact"), best.interact_prompt()])
+		get_tree().call_group("hud", "set_prompt", "" if best == null else Settings.prompt("interact", best.interact_prompt()))
 
 
 func _update_visuals(dt: float, on_floor: bool) -> void:

@@ -49,6 +49,7 @@ func _ready() -> void:
 
 func open() -> void:
 	visible = true
+	_main.get_child(4).visible = not Touch.active  # photo mode needs keyboard and mouse
 	_close_settings()
 	(_main.get_child(1) as Button).grab_focus()
 

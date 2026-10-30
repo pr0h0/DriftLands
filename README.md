@@ -42,6 +42,7 @@ every sound is synthesized in **Python**. The nature props are Quaternius' CC0 S
 - **Wardrobe**: unlock masks, scarves and robes with fragments, stars and completed levels.
 - **Journal**: a carved lore stone near each beacon tells part of the story.
 - **A living title screen**: the home island grows as you light beacons, and the wanderer roams it.
+- **Touch controls** for playing in a mobile browser, detected automatically.
 - **Photo mode**, three HUD layouts, rebindable keys, quality presets and autosave.
 
 ## Controls
@@ -60,12 +61,18 @@ every sound is synthesized in **Python**. The nature props are Quaternius' CC0 S
 
 Use the mouse to steer the camera. Keys can be rebound in Settings.
 
+**On phones and tablets** (in the browser, landscape), on-screen controls take over. Use the
+floating stick on the left to move and drag anywhere else to look. The Jump / Glide, Run / Dive,
+Shield and Use buttons sit on the right, and Pause and Return are on the left. The first tap goes
+fullscreen. Settings → Gameplay → *Touch controls* switches them between Auto, On and Off.
+
 ## Running
 
 Open `project.godot` in Godot 4.7 and press Play, or play it in the browser:
 
 ```sh
-tools/web.sh          # exports the web build and serves it on http://localhost:4956
+tools/web.sh                  # exports the web build and serves it on http://localhost:4956
+HOST=0.0.0.0 tools/web.sh     # same, reachable from a phone on your network (http://<pc-ip>:4956)
 ```
 
 ## Development

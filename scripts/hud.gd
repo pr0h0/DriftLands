@@ -101,6 +101,7 @@ func _ready() -> void:
 
 	_build_layout()
 	Settings.changed.connect(_build_layout)
+	Touch.toggled.connect(func(_on): _build_layout())
 
 
 func _label(font_size: int) -> Label:
@@ -190,7 +191,7 @@ func _status_box(horizontal := false) -> BoxContainer:
 
 
 func _build_layout() -> void:
-	var layout := int(Settings.get_v("hud_layout"))
+	var layout := 0 if Touch.active else int(Settings.get_v("hud_layout"))
 	if layout == _layout and meter != null:
 		return
 	_layout = layout
@@ -268,8 +269,9 @@ func _build_layout() -> void:
 
 func _place_text(side: bool, bottom := false) -> void:
 	timer_label.offset_top = (96 if _layout == 0 else 64) if not bottom else 30
-	hint_label.offset_left = 380 if side else 200
-	hint_label.offset_right = -200
+	var inset := 330 if Touch.active else 200  # clear of the touch stick and buttons
+	hint_label.offset_left = 380 if side else inset
+	hint_label.offset_right = -inset
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP if bottom else VERTICAL_ALIGNMENT_BOTTOM
 	hint_label.offset_top = 110 if bottom else 0
 	hint_label.offset_bottom = 0 if bottom else -64

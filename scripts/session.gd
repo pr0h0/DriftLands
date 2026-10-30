@@ -91,7 +91,7 @@ func _ready() -> void:
 		else:
 			f.found.connect(_on_fragment)
 	hud.set_fragments(found.size(), level.fragments.size())
-	player.hurt.connect(func(): first_hint("block", "Hold %s (or right mouse) to raise your shield." % Settings.key_label("block")))
+	player.hurt.connect(func(): first_hint("block", "Hold %s%s to raise your shield." % [Settings.key_label("block"), "" if Touch.active else " (or right mouse)"]))
 	pause_menu = PauseMenu.new()
 	add_child(pause_menu)
 	pause_menu.resumed.connect(func(): _pause(false))
@@ -161,6 +161,9 @@ func _ready() -> void:
 	if args.has("beamtest"):
 		await _beam_test()
 		return
+	if args.has("touchtest"):
+		await _touch_test()
+		return
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	hud.show_title(level.title, level.subtitle)
 	level.on_start()
@@ -177,7 +180,7 @@ func _process(dt: float) -> void:
 		return
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_was_captured = true
-	elif _was_captured and OS.has_feature("web"):
+	elif _was_captured and OS.has_feature("web") and not Touch.active:
 		_pause(true)  # browser released pointer lock (Esc)
 
 
@@ -821,6 +824,53 @@ func _beam_test() -> void:
 	get_tree().quit()
 
 
+## Debug: drives the on-screen controls with fake touches and checks the player responds.
+func _touch_test() -> void:
+	var s := get_viewport().get_visible_rect().size
+	var to_screen := get_viewport().get_final_transform()  # real touches arrive in window pixels
+	var touch := func(i: int, p: Vector2, down: bool):
+		var e := InputEventScreenTouch.new()
+		e.index = i
+		e.position = to_screen * p
+		e.pressed = down
+		Input.parse_input_event(e)
+	var drag := func(i: int, p: Vector2, rel: Vector2):
+		var e := InputEventScreenDrag.new()
+		e.index = i
+		e.position = to_screen * p
+		e.relative = to_screen.basis_xform(rel)
+		Input.parse_input_event(e)
+	await get_tree().create_timer(1.0).timeout
+	print("touch active=%s ui=%s" % [Touch.active, s])
+	var start := player.global_position
+	var stick := Vector2(200, s.y - 200)
+	touch.call(0, stick, true)
+	drag.call(0, stick + Vector2(0, -60), Vector2(0, -60))
+	await get_tree().create_timer(1.0).timeout
+	print("moved=%.2f m" % (player.global_position - start).length())
+	var yaw0 := player.yaw
+	touch.call(1, Vector2(s.x * 0.6, s.y * 0.4), true)
+	await get_tree().process_frame
+	drag.call(1, Vector2(s.x * 0.6 + 80, s.y * 0.4), Vector2(80, 0))
+	await get_tree().process_frame
+	touch.call(1, Vector2(s.x * 0.6 + 80, s.y * 0.4), false)
+	await get_tree().process_frame
+	print("yaw turned=%.2f rad" % (yaw0 - player.yaw))
+	touch.call(0, stick, false)
+	await get_tree().create_timer(0.3).timeout
+	var y0 := player.global_position.y
+	var jump := Vector2(s.x - 125, s.y - 135)
+	touch.call(2, jump, true)
+	await get_tree().create_timer(0.1).timeout
+	touch.call(2, jump, false)
+	await get_tree().create_timer(0.25).timeout
+	print("jump rise=%.2f m  stick released=%s" % [player.global_position.y - y0, not Input.is_action_pressed("move_forward")])
+	touch.call(3, Vector2(46, 175), true)
+	await get_tree().create_timer(0.2).timeout
+	print("paused=%s" % get_tree().paused)
+	get_tree().quit()
+
+
 ## Stages a feature for a screenshot: "finale" (escape), "lore", "carry".
 func _shot_setup(what: String) -> void:
 	var face := func(target: Vector3):
@@ -859,7 +909,7 @@ func _shot_setup(what: String) -> void:
 
 func _screenshot() -> void:
 	cycle.paused = true
-	player.input_enabled = false
+	player.input_enabled = args.has("touch")  # keeps the touch controls on screen
 	if args.has("hidehud"):
 		hud.visible = false
 	if args.has("damage"):

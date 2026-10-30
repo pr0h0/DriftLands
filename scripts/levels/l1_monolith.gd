@@ -57,9 +57,12 @@ func _extras() -> void:
 func on_start() -> void:
 	await get_tree().create_timer(6.5).timeout
 	if session.hud:
-		session.first_hint("move", "Move with %s/%s/%s/%s or arrow keys · Mouse to look · %s to jump" % [
-			Settings.key_label("move_forward"), Settings.key_label("move_left"), Settings.key_label("move_back"),
-			Settings.key_label("move_right"), Settings.key_label("jump")])
+		if Touch.active:
+			session.first_hint("move", "Move with the stick on the left · Drag anywhere else to look · Tap Jump to jump")
+		else:
+			session.first_hint("move", "Move with %s/%s/%s/%s or arrow keys · Mouse to look · %s to jump" % [
+				Settings.key_label("move_forward"), Settings.key_label("move_left"), Settings.key_label("move_back"),
+				Settings.key_label("move_right"), Settings.key_label("jump")])
 	await get_tree().create_timer(7.0).timeout
 	session.first_hint("goal", "Find the three light shards and return them to the monolith. Arches point the way.")
 	session.player.fell.connect(func(): session.first_hint("fall", "Fell? You're returned to solid ground. Press %s to do it yourself." % Settings.key_label("respawn")))

@@ -23,6 +23,9 @@ func _ready() -> void:
 		for i in int(args["fakeprogress"]):
 			Progress.data["levels"][str(i + 1)] = {"done": true, "best": 200.0, "challenges": {"flawless": true, "time": true, "fragments": true}, "fragments": [0, 1, 2, 3, 4]}
 		Progress.data["unlocked"] = int(args["fakeprogress"]) + 1
+	if args.has("touch") or args.has("touchtest"):  # debug: force the on-screen controls
+		Settings.values["touch_controls"] = 1
+		Touch._refresh()
 	if args.has("uitest"):
 		await _ui_test(args)
 		return

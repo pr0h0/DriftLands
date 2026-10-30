@@ -21,7 +21,7 @@ func _ready() -> void:
 	v.add_child(tabs)
 
 	var g := _page(tabs, "Gameplay")
-	_slider(g, "Mouse sensitivity", "mouse_sens", 0.2, 3.0, 0.05, "%.2f×")
+	_slider(g, "Look sensitivity" if Touch.active else "Mouse sensitivity", "mouse_sens", 0.2, 3.0, 0.05, "%.2f×")
 	_check(g, "Invert vertical look", "invert_y")
 	_slider(g, "Field of view", "fov", 60, 100, 1, "%d°")
 	_check(g, "Auto-center camera while gliding", "camera_auto")
@@ -40,6 +40,13 @@ func _ready() -> void:
 	df.tooltip_text = "\n".join(range(3).map(func(i): return "%s: %s" % [Difficulty.NAMES[i], Difficulty.describe(i)]))
 	df.item_selected.connect(func(i): Settings.set_v("difficulty", i))
 	_row(g, "Difficulty", df)
+	var tc := OptionButton.new()
+	for i in Settings.TOUCH_MODES.size():
+		tc.add_item(Settings.TOUCH_MODES[i], i)
+	tc.selected = int(Settings.get_v("touch_controls"))
+	tc.tooltip_text = "Auto: on for phones and tablets, or after the first touch."
+	tc.item_selected.connect(func(i): Settings.set_v("touch_controls", i))
+	_row(g, "Touch controls", tc)
 	_check(g, "Challenge mode (lives × 3 hearts, falls hurt)", "challenge")
 
 	var vid := _page(tabs, "Video")

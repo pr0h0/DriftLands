@@ -88,7 +88,7 @@ func _on_enter(body: Node3D) -> void:
 	if body is Player:
 		body.updrafts.append(self)
 		if not body.gliding:
-			ElUtil.hint(self, "updraft", "Wind vents lift you while gliding. Let go of the keys to hover and rise; hold %s to sink back down." % Settings.key_label("sprint"))
+			ElUtil.hint(self, "updraft", "Wind vents lift you while gliding. Let go of the %s to hover and rise; hold %s to sink back down." % ["stick" if Touch.active else "keys", Settings.key_label("sprint")])
 
 
 func _on_exit(body: Node3D) -> void:

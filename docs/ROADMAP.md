@@ -23,6 +23,10 @@ bridges, prism splitting, resonance bells, compass, button states) is being buil
 - Wardrobe (masks/scarves/robes), title island that grows with progress + roaming Wanderer,
   carrying stones and light orbs, beacon-beam ascent ending, collapsing chapter finales with an
   escape timer, lore stones + Journal, difficulty, Endless Flight and three time trials.
+- Touch controls for mobile browsers (scripts/autoload/touch.gd): auto-detected, with a Settings
+  switch; UI scaled to 1280x720 logical; portrait shows a "turn sideways" card. Test with
+  `-- --level=1 --touchtest` under xvfb (headless doesn't dispatch input).
+- Not yet tested on a real phone: frame rate on mobile GPUs, iOS Safari (no fullscreen API on iPhone).
 
 ## Later: worth doing (real chunks of work)
 - **Wind surfing**: curved/spiraling wind currents along splines that carry the glider. Top pick.

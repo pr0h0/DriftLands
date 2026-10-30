@@ -6,6 +6,7 @@ signal changed
 const PATH := "user://settings.cfg"
 const QUALITY_NAMES := ["Low", "Medium", "High", "Ultra"]
 const HUD_LAYOUTS := ["Top", "Side", "Bottom"]
+const TOUCH_MODES := ["Auto", "On", "Off"]
 
 ## action -> [label, default physical keycodes]
 const ACTIONS := {
@@ -40,6 +41,7 @@ var values := {
 	"fullscreen": false,
 	"vsync": true,
 	"render_scale": 1.0,
+	"touch_controls": 0,
 }
 var bindings := {}  # action -> Array of keycodes
 
@@ -105,11 +107,19 @@ func reset_bindings() -> void:
 	changed.emit()
 
 
+## How hints name an action's control: a key, or the on-screen button while touch controls are on.
 func key_label(action: String) -> String:
+	if Touch.active:
+		return "the %s button" % Touch.button_name(action)
 	var keys: Array = bindings.get(action, [])
 	if keys.is_empty():
 		return "—"
 	return OS.get_keycode_string(keys[0])
+
+
+## An interaction prompt: "[E]  Read the stone", or just the text on touch (the Use button lights up).
+func prompt(action: String, text: String) -> String:
+	return text if Touch.active else "[%s]  %s" % [key_label(action), text]
 
 
 func apply_input() -> void:
