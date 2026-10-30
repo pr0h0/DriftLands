@@ -17,6 +17,12 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var kv := String(arg).trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	if args.has("fakeprogress"):
+		# Debug: pretend N levels are done with every star and fragment (in memory only).
+		Progress.readonly = true
+		for i in int(args["fakeprogress"]):
+			Progress.data["levels"][str(i + 1)] = {"done": true, "best": 200.0, "challenges": {"flawless": true, "time": true, "fragments": true}, "fragments": [0, 1, 2, 3, 4]}
+		Progress.data["unlocked"] = int(args["fakeprogress"]) + 1
 	if args.has("uitest"):
 		await _ui_test(args)
 		return
@@ -24,6 +30,9 @@ func _ready() -> void:
 		start_level(int(args["level"]), args.has("resume"), args)
 	else:
 		await show_title()
+		if args.has("wardrobe"):
+			await get_tree().create_timer(1.5).timeout
+			(current as TitleScreen)._show_wardrobe()
 		if args.has("shot"):
 			for i in int(args.get("frames", "120")):
 				await get_tree().process_frame

@@ -30,6 +30,7 @@ var values := {
 	"camera_auto": true,
 	"hints": true,
 	"challenge": false,
+	"difficulty": 1,
 	"compass": false,
 	"hud_layout": 2,
 	"master": 0.9,

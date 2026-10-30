@@ -28,6 +28,15 @@ var finished := false
 var _hinted := {}
 var _was_captured := false
 var _photo: PhotoMode
+var carried_orb: Shard
+var beacon_awake := false
+var _clock_stopped := false
+var _finish_time := 0.0
+var _ascending := false
+var _ascend_at := Vector3.INF  # where the beacon beam (or escape beam) lifts you out
+var _collapse_left := -1.0
+var _collapse_fx: Node3D
+var _rumble: AudioStreamPlayer
 
 
 func _ready() -> void:
@@ -57,8 +66,13 @@ func _ready() -> void:
 	player.kill_y = level.kill_y
 	add_child(player)
 	level.follow = player
-	player.fell.connect(func(): hud.flash(0.7))
+	player.fell.connect(func(): hud.flash(0.7); _drop_orb())
+	player.hurt.connect(_drop_orb)
 	player.died.connect(_on_died)
+	lives = Difficulty.lives()
+	if Difficulty.extra_guards():
+		for sh in level.shards:
+			level.wisp(sh.global_position + Vector3(0, 2.5, 0), 4.5)
 	hud = Hud.new()
 	add_child(hud)
 	hud.setup(level.shards.size())
@@ -133,6 +147,9 @@ func _ready() -> void:
 			o = hit.position + d * 0.05
 		get_tree().quit()
 		return
+	if args.has("featuretest"):
+		await _feature_test()
+		return
 	if args.has("beamtest"):
 		await _beam_test()
 		return
@@ -144,7 +161,10 @@ func _ready() -> void:
 func _process(dt: float) -> void:
 	if finished or get_tree().paused:
 		return
-	elapsed += dt
+	if not _clock_stopped:
+		elapsed += dt
+	_update_orb()
+	_update_collapse(dt)
 	if _photo:
 		return
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -206,7 +226,7 @@ func _apply_checkpoint() -> void:
 	if cp.is_empty() or int(cp["level"]) != level_id:
 		return
 	elapsed = float(cp.get("time", 0.0))
-	lives = int(cp.get("lives", 3))
+	lives = int(cp.get("lives", Difficulty.lives()))
 	hud.set_lives(lives)
 	var p: Array = cp["pos"]
 	checkpoint_pos = Vector3(p[0], p[1], p[2])
@@ -267,7 +287,62 @@ func _on_died(cost_life := true) -> void:
 	Progress.set_checkpoint(level_id, collected, level.spawn_point, elapsed, lives)
 
 
+# ------------------------------------------------------------ light orbs (carried shards)
+
+func _pick_orb(shard: Shard) -> void:
+	if shard.home_pos == Vector3.ZERO:
+		shard.home_pos = shard.global_position
+	carried_orb = shard
+	player.holding_orb = true
+	Sound.play("collect", -6.0, 0.8)
+	hud.hint("A heavy light. Carry it to the beacon. Hands full: no shield, no running. A hit or a fall sends it home.", 6.0)
+
+
+func _update_orb() -> void:
+	if carried_orb == null:
+		return
+	var t := Time.get_ticks_msec() * 0.003
+	carried_orb.global_position = player.global_position + Vector3(0, 2.4 + sin(t) * 0.08, 0)
+	var to := level.monolith.global_position - player.global_position
+	if Vector2(to.x, to.z).length() < 8.0 and absf(to.y) < 6.0:
+		var s := carried_orb
+		carried_orb = null
+		player.holding_orb = false
+		s.delivered = true
+		_on_shard_collected(s)
+
+
+func _drop_orb() -> void:
+	if carried_orb == null:
+		return
+	var s := carried_orb
+	carried_orb = null
+	player.holding_orb = false
+	hud.hint("The light slipped away and drifted back to its shrine.", 3.5)
+	Sound.play("gate_fail", -6.0)
+	var t := create_tween()
+	t.tween_property(s, "global_position", s.home_pos, 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	t.tween_callback(func(): s.taken = false)
+
+
+## Where the compass should point: the beacon/escape beam, the beacon while carrying an orb,
+## otherwise the nearest remaining shard. Vector3.INF = nothing.
+func compass_target(from: Vector3) -> Vector3:
+	if _ascend_at != Vector3.INF:
+		return _ascend_at
+	if carried_orb:
+		return level.monolith.global_position
+	var best := Vector3.INF
+	for sh in level.shards:
+		if is_instance_valid(sh) and not sh.taken and from.distance_to(sh.global_position) < from.distance_to(best):
+			best = sh.global_position
+	return best
+
+
 func _on_shard_collected(shard: Shard) -> void:
+	if shard.carry and not shard.delivered:
+		_pick_orb(shard)
+		return
 	shard.set_deferred("monitoring", false)
 	var band := collected.size()
 	collected.append(shard.index)
@@ -337,22 +412,149 @@ func _finale() -> void:
 	Sound.music("triumph")
 	level.celebrate()
 	level.on_finale()
-	var time := elapsed
+	beacon_awake = true
+	if level.escape:
+		await get_tree().create_timer(3.0).timeout
+		_start_collapse()
+		return
+	# Normal levels: the clock stops now; step into the beacon's light to rise out of the level.
+	_clock_stopped = true
+	_finish_time = elapsed
+	var base := level.monolith.global_position
+	_add_ascend_beam(base, 3.4)
+	await get_tree().create_timer(4.5).timeout
+	hud.hint("The beacon is awake. Step into its light.", 6.0)
+
+
+## A soft column of light around `base`; entering it carries the Wanderer up and ends the level.
+func _add_ascend_beam(base: Vector3, radius: float) -> void:
+	_ascend_at = base
+	var col := FX.beam(radius, 400.0, Color(1.0, 0.92, 0.7), 0.7)
+	col.position = base
+	level.add_child(col)
+	var area := Area3D.new()
+	area.collision_layer = 0
+	area.collision_mask = 4
+	var cs := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = radius
+	cyl.height = 12.0
+	cs.shape = cyl
+	cs.position.y = 5.0
+	area.add_child(cs)
+	area.position = base
+	level.add_child(area)
+	area.body_entered.connect(func(b): if b is Player: _ascend(base))
+
+
+func _ascend(center: Vector3) -> void:
+	if _ascending or finished:
+		return
+	_ascending = true
+	if not _clock_stopped:
+		_clock_stopped = true
+		_finish_time = elapsed
+	_stop_collapse()
+	hud.clear_timer()
+	_drop_orb()
+	player.input_enabled = false
+	player.set_physics_process(false)
+	player.velocity = Vector3.ZERO
+	player.glider.visible = true
+	player.glider.scale = Vector3.ONE
+	Sound.play("launch", -2.0, 0.8)
+	var start := player.global_position
+	var r0 := Vector2(start.x - center.x, start.z - center.z).length()
+	var a0 := atan2(start.z - center.z, start.x - center.x)
+	var tw := create_tween()
+	tw.tween_method(func(k: float):
+		var a := a0 + k * TAU * 1.25
+		var r: float = lerp(r0, 1.2, minf(k * 2.0, 1.0))
+		player.global_position = Vector3(center.x + cos(a) * r, start.y + k * k * 80.0, center.z + sin(a) * r)
+		player.model.rotation.y = -a
+		player.model.rotation.x = -0.3
+		player.pitch = lerp(player.pitch, 0.55, 0.03)
+		player.pivot.global_position = player.pivot.global_position.lerp(player.global_position + Vector3(0, 1.5, 0), 0.03)
+		player.pivot.rotation = Vector3(player.pitch, player.yaw, 0), 0.0, 1.0, 5.0)
+	tw.parallel().tween_callback(func(): hud.flash(1.0)).set_delay(4.2)
+	await tw.finished
+	_complete(_finish_time)
+
+
+func _complete(time: float) -> void:
 	finished = true
 	var best := Progress.complete(level_id, time)
+	var par := level.par_time * Difficulty.par_scale()
 	var ch := Progress.record_challenges(level_id, {
 		"flawless": player.falls == 0 and player.hits == 0,
-		"time": time <= level.par_time,
-		"fragments": Progress.fragments(level_id).size() >= level.fragments.size(),
+		"time": time <= par,
+		"fragments": Progress.fragments(level_id).size() >= Difficulty.fragments_needed(level.fragments.size()),
 	})
-	await get_tree().create_timer(5.5).timeout
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.input_enabled = false
-	var cs := CompleteScreen.new().setup(level_id, time, best, ch, level.par_time)
+	var cs := CompleteScreen.new().setup(level_id, time, best, ch, par)
 	add_child(cs)
 	cs.next_level.connect(func(): to_level.emit(level_id + 1, false))
 	cs.replay.connect(func(): to_level.emit(level_id, false))
 	cs.quit_to_menu.connect(func(): to_menu.emit())
+
+
+# ------------------------------------------------------------ chapter finale: the island falls
+
+func _start_collapse() -> void:
+	var c := level.monolith.global_position
+	var r := level.island_radius_at(c)
+	var plat: Vector3 = await level.build_escape()
+	_add_ascend_beam(plat, 3.4)
+	_collapse_left = level.escape_time
+	hud.show_title("The island is falling", "ride the rings to the far platform before it's gone", 2.5)
+	Sound.play("rumble", 0.0)
+	_rumble = AudioStreamPlayer.new()
+	_rumble.stream = Sound.looped("rumble")
+	_rumble.bus = "SFX"
+	_rumble.volume_db = -8.0
+	add_child(_rumble)
+	_rumble.play()
+	_collapse_fx = level.collapse_fx(c, r)
+
+
+func _update_collapse(dt: float) -> void:
+	if _collapse_left < 0.0 or _ascending:
+		return
+	_collapse_left -= dt
+	hud.set_timer(_collapse_left)
+	var shake := 0.05 + 0.1 * clampf(1.0 - _collapse_left / level.escape_time, 0.0, 1.0)
+	player.camera.h_offset = randf_range(-shake, shake)
+	player.camera.v_offset = randf_range(-shake, shake)
+	if _collapse_left <= 0.0:
+		_collapse_left = -1.0
+		_collapse_failed()
+
+
+func _stop_collapse() -> void:
+	_collapse_left = -1.0
+	player.camera.h_offset = 0.0
+	player.camera.v_offset = 0.0
+	if _rumble:
+		create_tween().tween_property(_rumble, "volume_db", -60.0, 2.0)
+	if _collapse_fx:
+		_collapse_fx.queue_free()
+
+
+## Too slow: the island takes every life with it and the level begins again.
+func _collapse_failed() -> void:
+	_stop_collapse()
+	hud.clear_timer()
+	finished = true
+	player.input_enabled = false
+	player.set_physics_process(false)
+	lives = 0
+	hud.set_lives(0)
+	hud.flash(1.0, Color(0.05, 0.03, 0.06))
+	hud.show_title("The island is gone", "all lives lost · the level begins again", 1.5)
+	Progress.clear_checkpoint()
+	await get_tree().create_timer(4.0).timeout
+	to_level.emit(level_id, false)
 
 
 # ------------------------------------------------------------ debug modes
@@ -462,6 +664,59 @@ func _audit() -> void:
 	if level.fragments.size() != 5:
 		issues.append("fragments: %d" % level.fragments.size())
 	print("AUDIT level %d: %s" % [level_id, "OK" if issues.is_empty() else "\n  " + "\n  ".join(issues)])
+	get_tree().quit()
+
+
+## Exercises stone carrying, light-orb delivery, the beacon ascent and the escape.
+func _feature_test() -> void:
+	var wait := func(sec: float): await get_tree().create_timer(sec).timeout
+	await wait.call(0.5)
+	var stones := get_tree().get_nodes_in_group("push_stone")
+	if not stones.is_empty():
+		var st: PushStone = stones[0]
+		player.teleport(st.global_position + Vector3(1.4, 0.3, 0))
+		await wait.call(0.5)
+		st.interact()
+		print("FT stone lifted=%s" % (player.carrying == st))
+		player.debug_dir = Vector3(0, 0, 1)
+		await wait.call(1.0)
+		player.debug_dir = Vector3.ZERO
+		player.drop_carried(false)
+		await wait.call(1.0)
+		print("FT stone dropped at %s (player %s) carrying=%s" % [st.global_position.snappedf(0.1), player.global_position.snappedf(0.1), player.carrying])
+	for sh in level.shards:
+		if sh.carry:
+			player.teleport(sh.global_position + Vector3(0, -1.0, 0))
+			await wait.call(0.5)
+			print("FT orb picked=%s" % (carried_orb == sh))
+			player.respawn(true)
+			await wait.call(2.0)
+			print("FT orb after fall: carried=%s back_home=%s" % [carried_orb != null, sh.global_position.distance_to(sh.home_pos) < 0.5])
+			player.teleport(sh.global_position + Vector3(0, -1.0, 0))
+			await wait.call(0.5)
+			player.teleport(level.monolith.global_position + Vector3(0, 0.5, 5.5))
+			await wait.call(0.5)
+			print("FT orb delivered=%s collected=%s" % [sh.delivered, collected])
+	for sh in level.shards:
+		if is_instance_valid(sh) and not sh.taken:
+			sh.taken = true
+			sh.delivered = true
+			_on_shard_collected(sh)
+	await wait.call(5.0)
+	print("FT beacon_awake=%s escape=%s" % [beacon_awake, level.escape])
+	if level.escape:
+		if args.has("collapsefail"):
+			await wait.call(3.0)
+			_collapse_left = 2.0
+			await wait.call(3.0)
+			print("FT collapse failed: finished=%s lives=%d" % [finished, lives])
+			get_tree().quit()
+			return
+		await wait.call(3.0)
+		print("FT escape platform %s timer %.1f" % [_ascend_at.snappedf(0.1), _collapse_left])
+	player.teleport(_ascend_at + Vector3(1.5, 0.3, 0))
+	await wait.call(7.0)
+	print("FT finished=%s time=%.1f done=%s" % [finished, _finish_time, Progress.level_info(level_id).get("done", false)])
 	get_tree().quit()
 
 

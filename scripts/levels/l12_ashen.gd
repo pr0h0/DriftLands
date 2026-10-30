@@ -20,7 +20,7 @@ func plan() -> void:
 	finish(a, "plates", 1, 1)
 	var b := causeway(S, 120.0, 2, "island_tall")
 	b = vent(b, 120.0, 12.0, "island_small_c")
-	finish(b, "free", 0, 1)
+	finish(b, "free", 0, 1, true)
 	var c := glide(S, 240.0, 5.0, "island_mid")
 	c = stones(c, 245.0, "crumble", 4, 1.0, "island_small_a")
 	finish(c, "bells", 2, 0)

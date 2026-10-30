@@ -24,12 +24,13 @@ func _rows() -> Array:
 	var earned: Dictionary = Progress.level_info(s.level_id).get("challenges", {})
 	var flaw_fail := s.player.falls > 0 or s.player.hits > 0
 	var t := s.elapsed
-	var par := s.level.par_time
+	var par := s.level.par_time * Difficulty.par_scale()
+	var need := Difficulty.fragments_needed(total)
 	return [
 		["Fragments  %d / %d" % [found, total], "done" if found >= total else "open", true],
 		["Flawless (no falls or hits)", "fail" if flaw_fail else ("done" if earned.get("flawless", false) else "open"), false],
 		["Under %s   ·   %s" % [Levels.format_time(par), Levels.format_time(t)], "fail" if t > par else ("done" if earned.get("time", false) else "open"), false],
-		["Find every fragment", "done" if found >= total else "open", false],
+		["Find every fragment" if need >= total else "Find %d fragments" % need, "done" if found >= need else "open", false],
 	]
 
 

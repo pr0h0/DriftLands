@@ -25,7 +25,7 @@ func plan() -> void:
 	var c := ferry(S, 150.0, "island_mid")
 	c = elevator(c, 155.0, 16.0, "island_small_c")
 	c = carousel_hop(c, 160.0)
-	finish(c, "free", 2, 1)
+	finish(c, "free", 2, 1, true)
 
 
 func on_start() -> void:

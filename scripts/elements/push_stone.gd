@@ -1,12 +1,58 @@
 class_name PushStone
 extends RigidBody3D
-## A heavy rune block the player can shove around. Returns home if it falls off the world.
+## A heavy rune block the player can shove around, or lift and carry (interact). Jumping or
+## leaving the ground drops it. Returns home if it falls off the world.
 
 const PUSH_SPEED := 2.4
 
 var home: Vector3
 var _push := Vector3.ZERO
 var _push_t := 0.0
+var holder: Player
+
+
+func interact_prompt() -> String:
+	return "Lift stone"
+
+
+func interact() -> void:
+	var p := get_tree().get_first_node_in_group("player") as Player
+	if p and p.carrying == null:
+		p.pick_up(self)
+
+
+func lift(by: Player) -> void:
+	holder = by
+	remove_from_group("interactable")
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	freeze = true
+	collision_layer = 0
+	collision_mask = 0
+	Sound.play_at("plate_on", global_position, -6.0, 0.8)
+	ElUtil.hint(self, "carry", "Carrying a stone: %s sets it down. Jumping or falling drops it." % Settings.key_label("interact"))
+
+
+## Puts the stone down at `p` (ground level).
+func set_down(p: Vector3) -> void:
+	holder = null
+	global_position = p
+	rotation = Vector3.ZERO
+	freeze = false
+	collision_layer = 8
+	collision_mask = 1 | 2 | 4 | 8
+	linear_velocity = Vector3.ZERO
+	add_to_group("interactable")
+	Sound.play_at("land", p, -4.0, 0.7)
+
+
+func go_home() -> void:
+	if holder:
+		holder.carrying = null
+		set_down(home + Vector3.UP * 1.0)
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	global_position = home + Vector3.UP * 1.0
+	Sound.play_at("checkpoint", home, -8.0)
 
 
 ## Called by the player every frame they shove into the stone.
@@ -18,6 +64,7 @@ func push(dir: Vector3) -> void:
 
 func _ready() -> void:
 	add_to_group("push_stone")
+	add_to_group("interactable")
 	collision_layer = 8
 	collision_mask = 1 | 2 | 4 | 8
 	mass = 30.0
@@ -40,6 +87,10 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
+	if holder:
+		global_position = holder.global_position + Vector3.UP * 1.65
+		rotation.y = holder.model.rotation.y
+		return
 	_push_t -= dt
 	if _push_t > 0.0:
 		linear_velocity = Vector3(_push.x * PUSH_SPEED, linear_velocity.y, _push.z * PUSH_SPEED)
@@ -47,8 +98,5 @@ func _physics_process(dt: float) -> void:
 		linear_velocity = Vector3(0, linear_velocity.y, 0)
 	# Pushed off the edge (or carried far away): glide back home instead of falling forever.
 	var away := Vector2(global_position.x - home.x, global_position.z - home.z).length()
-	if global_position.y < home.y - 3.0 or away > 22.0:
-		linear_velocity = Vector3.ZERO
-		angular_velocity = Vector3.ZERO
-		global_position = home + Vector3.UP * 1.0
-		Sound.play_at("checkpoint", home, -8.0)
+	if global_position.y < home.y - 3.0 or away > 40.0:
+		go_home()

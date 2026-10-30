@@ -36,7 +36,9 @@ var interact_target: Node3D
 var debug_dir := Vector3.ZERO  # probe/testing: forced movement direction
 var debug_block := false
 var debug_dive := false
-var model_asset := "wanderer"
+var carrying: PushStone
+var holding_orb := false  ## a light orb: hands full, no shield, no running
+var model_asset := ""  # empty = the wardrobe's mask
 
 var model: Node3D
 var glider: Node3D
@@ -75,6 +77,7 @@ var _shield_mat: ShaderMaterial
 
 
 func _ready() -> void:
+	add_to_group("player")
 	collision_layer = 4
 	collision_mask = 1 | 2 | 8
 	floor_max_angle = deg_to_rad(50)
@@ -90,7 +93,9 @@ func _ready() -> void:
 	model = Node3D.new()
 	add_child(model)
 	model.rotation.y = yaw
-	model.add_child(Assets.spawn(model_asset, false))
+	var body := Assets.spawn(model_asset if model_asset != "" else Cosmetics.mask_asset(), false)
+	Cosmetics.dress(body)
+	model.add_child(body)
 	glider = Assets.spawn("glider", false)
 	glider.position = Vector3(0, 1.95, 0)
 	glider.rotation.x = 0.3
@@ -118,6 +123,7 @@ func _ready() -> void:
 
 	scarf = Scarf.new()
 	scarf.player = self
+	scarf.model = model
 	add_child(scarf)
 	add_child(FX.motes())
 	_dust = FX.dust()
@@ -181,6 +187,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event.is_action_pressed("respawn"):
 		respawn(false)
+	elif event.is_action_pressed("interact") and carrying:
+		drop_carried(false)
 	elif event.is_action_pressed("interact") and interact_target:
 		interact_target.interact()
 
@@ -218,6 +226,9 @@ func _physics_process(dt: float) -> void:
 		_jump_buffer = 0.15
 	else:
 		_jump_buffer -= dt
+
+	if carrying and ((_jump_buffer > 0.0 and on_floor) or (not on_floor and _air_time > 0.3)):
+		drop_carried(not on_floor)
 
 	if _jump_buffer > 0.0 and _coyote > 0.0:
 		velocity.y = JUMP_VELOCITY
@@ -264,6 +275,8 @@ func _physics_process(dt: float) -> void:
 		velocity.y = move_toward(velocity.y, -sink, (5.0 if _boost > 0.0 else 22.0) * dt)
 	else:
 		var speed := 2.6 if blocking else (RUN_SPEED if diving else WALK_SPEED)
+		if carrying or holding_orb:
+			speed = WALK_SPEED * 0.8
 		var hv := Vector3(velocity.x, 0, velocity.z)
 		var accel := GROUND_ACCEL if on_floor else AIR_ACCEL
 		if on_floor and _on_ice():
@@ -305,8 +318,42 @@ func _on_ice() -> bool:
 	return not hit.is_empty() and hit.collider.has_meta("ice")
 
 
+func pick_up(stone: PushStone) -> void:
+	carrying = stone
+	stone.lift(self)
+	_squash(Vector3(1.1, 0.88, 1.1))
+
+
+## Sets the carried stone down in front (or wherever it is, when dropped in mid-air).
+func drop_carried(in_air: bool) -> void:
+	var stone := carrying
+	carrying = null
+	interact_target = null
+	if in_air:
+		stone.set_down(stone.global_position)
+		return
+	var fwd := -model.global_basis.z.slide(Vector3.UP).normalized()
+	var space := get_world_3d().direct_space_state
+	var box := BoxShape3D.new()
+	box.size = Vector3(1.15, 1.1, 1.15)
+	for dir in [fwd, fwd.rotated(Vector3.UP, 0.8), fwd.rotated(Vector3.UP, -0.8), fwd.rotated(Vector3.UP, PI / 2), fwd.rotated(Vector3.UP, -PI / 2), -fwd]:
+		var p: Vector3 = global_position + dir * 1.25
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 1.2, p + Vector3.DOWN * 2.0, 1 | 2))
+		if hit.is_empty():
+			continue
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = box
+		q.transform = Transform3D(Basis(), (hit.position as Vector3) + Vector3.UP * 0.62)
+		q.collision_mask = 1 | 2 | 4 | 8
+		q.exclude = [get_rid()]
+		if space.intersect_shape(q, 1).is_empty():
+			stone.set_down(hit.position + Vector3.UP * 0.02)
+			return
+	stone.go_home()
+
+
 func _push_bodies(dir: Vector3) -> void:
-	if dir.length() < 0.1 or not is_on_floor():
+	if dir.length() < 0.1 or not is_on_floor() or carrying:
 		return
 	for i in get_slide_collision_count():
 		var c := get_slide_collision(i)
@@ -444,7 +491,7 @@ func _update_marker(on_floor: bool) -> void:
 
 
 func _update_block(dt: float) -> void:
-	var want := debug_block or (input_enabled and Input.is_action_pressed("block"))
+	var want := debug_block or (input_enabled and Input.is_action_pressed("block") and carrying == null and not holding_orb)
 	if want and not blocking and stamina > 0.25:
 		blocking = true
 		ElUtil.hint(self, "block_use", "Your shield blocks orbs and wisps, but tires quickly. Release it to recover.")
@@ -526,6 +573,8 @@ func has_ground(p: Vector3) -> bool:
 
 
 func teleport(p: Vector3) -> void:
+	if carrying:
+		carrying.go_home()
 	set_gliding(false)
 	velocity = Vector3.ZERO
 	global_position = p
@@ -554,6 +603,11 @@ func _track_safe(dt: float) -> void:
 
 
 func _find_interactable() -> void:
+	if carrying:
+		if interact_target != carrying:
+			interact_target = carrying
+			get_tree().call_group("hud", "set_prompt", "[%s]  Set down" % Settings.key_label("interact"))
+		return
 	var best: Node3D = null
 	var best_d := 2.8
 	for n in get_tree().get_nodes_in_group("interactable"):

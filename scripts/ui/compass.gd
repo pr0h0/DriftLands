@@ -14,17 +14,11 @@ func _draw() -> void:
 	var cam := get_viewport().get_camera_3d()
 	if s == null or cam == null or s.level == null:
 		return
-	var best: Shard = null
-	var best_d := INF
-	for sh in s.level.shards:
-		if is_instance_valid(sh) and not sh.taken:
-			var d := cam.global_position.distance_to(sh.global_position)
-			if d < best_d:
-				best_d = d
-				best = sh
-	if best == null:
+	var target := s.compass_target(cam.global_position)
+	if target == Vector3.INF:
 		return
-	var local := cam.global_basis.inverse() * (best.global_position - cam.global_position)
+	var best_d := cam.global_position.distance_to(target)
+	var local := cam.global_basis.inverse() * (target - cam.global_position)
 	var ang := atan2(local.x, -local.z)
 	var cx: float = size.x / 2.0 + clamp(ang / PI, -1.0, 1.0) * size.x * 0.32
 	var y := 70.0

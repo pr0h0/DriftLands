@@ -17,7 +17,7 @@ func _init() -> void:
 func plan() -> void:
 	var a := rings(S, -80.0, 4, "island_mid")
 	a = vent(a, -80.0, 14.0, "island_small_c")
-	finish(a, "free", 1, 2)
+	finish(a, "free", 1, 2, true)
 	var b := vent(S, 40.0, 16.0, "island_tall")
 	b = rings(b, 45.0, 3, "island_flat")
 	finish(b, "bells", 2, 0)

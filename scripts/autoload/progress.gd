@@ -3,7 +3,9 @@ extends Node
 
 const PATH := "user://save.json"
 
-var data := {"unlocked": 1, "levels": {}, "checkpoint": {}}
+var readonly := false  ## debug runs with fake progress never write the save
+
+var data := {"unlocked": 1, "levels": {}, "checkpoint": {}, "wardrobe": {}, "lore": [], "runs": {}}
 
 
 func _ready() -> void:
@@ -17,6 +19,8 @@ func _ready() -> void:
 
 
 func save() -> void:
+	if readonly:
+		return
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data, "  "))
@@ -82,10 +86,44 @@ func clear_checkpoint() -> void:
 	save()
 
 
+func levels_done() -> int:
+	var n := 0
+	for k in data["levels"]:
+		if data["levels"][k].get("done", false) and int(k) < 100:
+			n += 1
+	return n
+
+
+func total_stars() -> int:
+	var n := 0
+	for k in data["levels"]:
+		if int(k) >= 100:
+			continue
+		for v in data["levels"][k].get("challenges", {}).values():
+			n += 1 if v else 0
+	return n
+
+
+func total_fragments() -> int:
+	var n := 0
+	for k in data["levels"]:
+		n += (data["levels"][k].get("fragments", []) as Array).size()
+	return n
+
+
+## Chapter `ch` counts as complete when all of its levels are done.
+func chapter_done(ch: int) -> bool:
+	for i in Levels.count():
+		if Levels.chapter_of(i + 1) == ch and not level_info(i + 1).get("done", false):
+			return false
+	return true
+
+
 func has_progress() -> bool:
 	return unlocked() > 1 or not checkpoint().is_empty()
 
 
 func reset() -> void:
-	data = {"unlocked": 1, "levels": {}, "checkpoint": {}}
+	# The wardrobe choice and endless/trial records survive a new game.
+	data = {"unlocked": 1, "levels": {}, "checkpoint": {}, "wardrobe": data.get("wardrobe", {}), "lore": [], "runs": data.get("runs", {})}
 	save()

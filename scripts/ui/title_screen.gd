@@ -12,6 +12,11 @@ var _ui: Control
 var _menu: VBoxContainer
 var _pages: Control
 var _settings: SettingsMenu
+var wanderer: TitleWanderer
+var _wardrobe := false
+var _cam_pos := Vector3.ZERO
+var _cam_look := Vector3.ZERO
+var _preview := {}
 
 
 func _ready() -> void:
@@ -34,13 +39,55 @@ func _ready() -> void:
 	level.decor_only = true
 	add_child(level)
 	await level.build()
+	wanderer = TitleWanderer.new()
+	wanderer.center = level.monolith.global_position
+	wanderer.position = wanderer.center + Vector3(2.0, 1.0, 7.0)
+	add_child(wanderer)
+	_grow_home()
 
 
 func _process(dt: float) -> void:
 	_t += dt
-	_orbit(_t)
+	_orbit(_t, dt)
 	if level:
 		level.follow = cam
+
+
+## The title island grows with the player's progress: plaza lights, monolith runes, flowers,
+## butterflies, the beacon beam, birds, a garden islet and, at the very end, a golden sky.
+func _grow_home() -> void:
+	var done := Progress.levels_done()
+	var c := level.monolith.global_position
+	level.wake_posts(done)
+	for ch in [1, 2, 3]:
+		if Progress.chapter_done(ch):
+			level.light_runes(ch - 1)
+	if done >= 3:
+		level._bloom_flowers(c)
+	if done >= 5:
+		var bf := FX.butterflies(Vector3(12, 1.5, 12))
+		bf.position = c + Vector3(0, 2, 0)
+		level.add_child(bf)
+		var lan := FX.lanterns(Vector3(16, 3, 16), Color(1.0, 0.85, 0.55, 0.9), 40 + done * 4)
+		lan.position = c + Vector3(0, 3, 0)
+		level.add_child(lan)
+	if Progress.chapter_done(1):
+		var top := Node3D.new()
+		top.position = Vector3(0, 8.6, 0)
+		level.monolith.add_child(top)
+		var gold := Progress.chapter_done(3)
+		top.add_child(FX.beam(1.0, 600.0, Color(1.0, 0.85, 0.5) if gold else Color(0.6, 0.9, 1.0), 2.5))
+	if done >= 10:
+		level.birds(c + Vector3(0, 24, 0), 10, 32.0)
+	if Progress.chapter_done(2):
+		var p := Vector3(-30, 9, -34)
+		level.island("island_small_c", p, 0.8, 5.5, {"flowers": true})
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		level._grass(level._islands[-1])
+		level.put("tree_blossom", p.x, p.z, p.y, 0.3, 1.1)
+		var edge := level.rim(p, Vector3(0.6, 0, 0.8), 0.4)
+		level.waterfall(edge.x, edge.z, edge.y, Vector3(0.6, 0, 0.8), 50.0)
 
 
 ## Secret: typing "skyward" on the title screen unlocks every level (for testing).
@@ -68,10 +115,30 @@ func _unhandled_input(event: InputEvent) -> void:
 			_show_main()
 
 
-func _orbit(t: float) -> void:
+## Slow orbit framing the island and the Wanderer; the wardrobe swings in for a close-up.
+func _orbit(t: float, dt := 0.0) -> void:
 	var a := 2.4 + t * 0.03
-	cam.global_position = Vector3(cos(a) * 49.0, 16.0 + sin(t * 0.1) * 2.5, sin(a) * 49.0)
-	cam.look_at(Vector3(0, 4, 0))
+	var pos := Vector3(cos(a) * 31.0, 11.0 + sin(t * 0.1) * 2.0, sin(a) * 31.0)
+	var look := Vector3(0, 3, 0)
+	if wanderer:
+		var w := wanderer.global_position
+		look = look.lerp(w + Vector3.UP, 0.6)
+		pos += (w - Vector3(0, w.y, 0)) * 0.5
+		if _wardrobe:
+			var out := Vector3(cos(a), 0, sin(a))
+			pos = w + out * 3.6 + Vector3.UP * 1.5
+			var right := (-out).cross(Vector3.UP)
+			look = w + Vector3.UP * 1.0 - right * 0.9
+			wanderer.face_target = pos
+	if dt == 0.0:
+		_cam_pos = pos
+		_cam_look = look
+	else:
+		var k := 1.0 - exp(-(3.0 if _wardrobe else 1.5) * dt)
+		_cam_pos = _cam_pos.lerp(pos, k)
+		_cam_look = _cam_look.lerp(look, k)
+	cam.global_position = _cam_pos
+	cam.look_at(_cam_look)
 
 
 func _build_ui() -> void:
@@ -122,6 +189,10 @@ func _build_ui() -> void:
 func _clear_pages() -> void:
 	for c in _pages.get_children():
 		c.queue_free()
+	if _wardrobe:
+		_wardrobe = false
+		wanderer.posing = false
+		wanderer.redress()
 
 
 ## A solid backing panel for sub-pages so text stays readable over the 3D backdrop.
@@ -148,6 +219,7 @@ func _show_main() -> void:
 		_menu.add_child(UITheme.button("Continue  ·  " + Levels.LIST[nid - 1]["title"], func(): start_level.emit(nid, false)))
 	_menu.add_child(UITheme.button("New game", _new_game))
 	_menu.add_child(UITheme.button("Chapters", _show_chapters))
+	_menu.add_child(UITheme.button("Wardrobe", _show_wardrobe))
 	_menu.add_child(UITheme.button("Settings", _show_settings))
 	_menu.add_child(UITheme.fullscreen_button())
 	if not OS.has_feature("web"):
@@ -226,3 +298,64 @@ func _show_settings() -> void:
 	_settings = SettingsMenu.new()
 	_settings.closed.connect(_show_main)
 	_pages.add_child(_settings)
+
+
+# ------------------------------------------------------------ wardrobe
+
+func _show_wardrobe() -> void:
+	_clear_pages()
+	_wardrobe = true
+	wanderer.posing = true
+	_preview = {"mask": Cosmetics.current("mask"), "scarf": Cosmetics.current("scarf"), "robe": Cosmetics.current("robe")}
+	var v := _panel_page()
+	v.add_child(UITheme.title_label("Wardrobe", 40))
+	var stats := Label.new()
+	stats.text = "%d / 63 stars  ·  %d / 105 fragments  ·  %d / %d levels" % [Progress.total_stars(), Progress.total_fragments(), Progress.levels_done(), Levels.count()]
+	stats.modulate = Color(1, 0.94, 0.86, 0.85)
+	stats.add_theme_font_size_override("font_size", 17)
+	v.add_child(stats)
+	for slot in ["mask", "scarf", "robe"]:
+		_wardrobe_row(v, slot)
+	v.add_child(UITheme.button("Back", _show_main, 200))
+
+
+func _wardrobe_row(v: VBoxContainer, slot: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	v.add_child(row)
+	var name_l := Label.new()
+	name_l.text = {"mask": "Mask", "scarf": "Scarf", "robe": "Robe"}[slot]
+	name_l.custom_minimum_size.x = 80
+	row.add_child(name_l)
+	var item := Label.new()
+	item.custom_minimum_size.x = 300
+	item.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var note := Label.new()
+	note.add_theme_font_size_override("font_size", 15)
+	note.custom_minimum_size.x = 120
+	var refresh := func():
+		var cat := Cosmetics.catalog(slot)
+		var e: Dictionary = cat.filter(func(x): return x["id"] == _preview[slot])[0]
+		var r := Cosmetics.requirement(slot, e)
+		var ok := Cosmetics.unlocked(slot, e)
+		item.text = e["name"] if ok else "%s  ·  %d / %d %s" % [e["name"], r[0], r[1], r[2]]
+		item.modulate = Color.WHITE if ok else Color(1, 0.75, 0.7, 0.8)
+		note.text = "worn" if ok else "locked"
+		note.modulate = UITheme.GOLD if ok else Color(1, 1, 1, 0.5)
+		if ok:
+			Cosmetics.choose(slot, e["id"])
+		wanderer.redress(_preview["mask"], _preview["scarf"], _preview["robe"])
+	var step := func(d: int):
+		var cat := Cosmetics.catalog(slot)
+		var i := 0
+		for k in cat.size():
+			if cat[k]["id"] == _preview[slot]:
+				i = k
+		_preview[slot] = cat[(i + d + cat.size()) % cat.size()]["id"]
+		Sound.play("gate", -10.0, 1.4)
+		refresh.call()
+	row.add_child(UITheme.button("<", func(): step.call(-1), 48))
+	row.add_child(item)
+	row.add_child(UITheme.button(">", func(): step.call(1), 48))
+	row.add_child(note)
+	refresh.call()

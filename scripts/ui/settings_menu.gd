@@ -33,7 +33,14 @@ func _ready() -> void:
 	hl.selected = int(Settings.get_v("hud_layout"))
 	hl.item_selected.connect(func(i): Settings.set_v("hud_layout", i))
 	_row(g, "HUD layout", hl)
-	_check(g, "Challenge mode (3 lives × 3 hearts, falls hurt)", "challenge")
+	var df := OptionButton.new()
+	for i in Difficulty.NAMES.size():
+		df.add_item(Difficulty.NAMES[i], i)
+	df.selected = Difficulty.level()
+	df.tooltip_text = "\n".join(range(3).map(func(i): return "%s: %s" % [Difficulty.NAMES[i], Difficulty.describe(i)]))
+	df.item_selected.connect(func(i): Settings.set_v("difficulty", i))
+	_row(g, "Difficulty", df)
+	_check(g, "Challenge mode (lives × 3 hearts, falls hurt)", "challenge")
 
 	var vid := _page(tabs, "Video")
 	var q := OptionButton.new()

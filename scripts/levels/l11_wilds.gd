@@ -23,7 +23,7 @@ func plan() -> void:
 	finish(b, "bells", 0, 0)
 	var c := ferry(S, 180.0, "island_mid")
 	c = vent(c, 190.0, 10.0, "island_small_a")
-	finish(c, "free", 1, 0)
+	finish(c, "free", 1, 0, true)
 
 
 func on_start() -> void:

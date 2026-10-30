@@ -138,6 +138,7 @@ func _widgets() -> void:
 	lives_bar = LivesBar.new()
 	lives_bar.lives = _lives
 	lives_bar.unlimited = _unlimited
+	lives_bar.maximum = Difficulty.lives()
 	stamina_bar = ProgressBar.new()
 	stamina_bar.custom_minimum_size = Vector2(96, 6)
 	stamina_bar.max_value = 1.0
@@ -321,6 +322,7 @@ func set_lives(n: int) -> void:
 	_unlimited = n < 0
 	_lives = max(n, 0)
 	lives_bar.unlimited = _unlimited
+	lives_bar.maximum = maxi(Difficulty.lives(), _lives)
 	lives_bar.lives = _lives
 
 

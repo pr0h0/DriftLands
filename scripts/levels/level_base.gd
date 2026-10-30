@@ -31,6 +31,11 @@ var prop_overrides := {}
 var biome := {}
 ## When true, generic props are swapped for Quaternius nature models (see NATURE).
 var nature := false
+## Chapter finale: once the beacon wakes, the island collapses and you must escape in time.
+var escape := false
+var escape_time := 75.0
+var _wisps := 0
+var _sentinels := 0
 const NATURE := {
 	"tree_a": ["CommonTree_1", "CommonTree_2", "CommonTree_3", "CommonTree_4", "CommonTree_5"],
 	"tree_b": ["CommonTree_2", "CommonTree_4", "TwistedTree_2"],
@@ -319,6 +324,23 @@ func _place_secrets() -> void:
 		fragment(g + Vector3(1.8 + 7.0, 23.0, 1.5))
 
 
+## Lights the first `n` dormant posts around the plaza (title island progress).
+func wake_posts(n: int) -> void:
+	for i in min(n, _dormant.size()):
+		var d: Array = _dormant[i]
+		(d[1] as OmniLight3D).light_energy = 2.2
+		(ElUtil.unique_mat(d[0], "rune") as StandardMaterial3D).emission_energy_multiplier = 6.0
+
+
+## Lights one of the monolith's three rune bands (0-2).
+func light_runes(band: int) -> void:
+	var runes := Assets.find(monolith, "Runes%d" % (band + 1)) as MeshInstance3D
+	if runes:
+		var m := (Mats.get_mat("rune") as StandardMaterial3D).duplicate() as StandardMaterial3D
+		m.emission_energy_multiplier = 5.0
+		runes.material_override = m
+
+
 ## World reaction when the beacon is lit: dormant lights wake, flowers bloom, life returns.
 func celebrate() -> void:
 	for i in _dormant.size():
@@ -583,9 +605,96 @@ func sundial(x: float, z: float, near_y: float) -> Sundial:
 	return s
 
 
+# ------------------------------------------------------------ chapter finale escape
+
+## Radius of the island under `p` (from the islands placed so far).
+func island_radius_at(p: Vector3) -> float:
+	var best := 12.0
+	var best_d := INF
+	for isl in _islands:
+		var d := Vector2(isl.pos.x - p.x, isl.pos.z - p.z).length()
+		if d < best_d:
+			best_d = d
+			best = isl.r
+	return best
+
+
+## Builds the escape: a launch pad at the start island's rim, a chain of boost rings toward the
+## most open stretch of sky, and a far platform. Returns where the escape beam stands.
+func build_escape() -> Vector3:
+	var c := monolith.global_position
+	var r0 := island_radius_at(c)
+	var best_a := 0.0
+	var best_score := -INF
+	for k in 36:
+		var a := k * TAU / 36.0
+		var d := Vector3(cos(a), 0, sin(a))
+		var score := 1000.0
+		for isl in _islands:
+			var rel: Vector3 = isl.pos - c
+			rel.y = 0.0
+			if rel.length() < r0 + 4.0:
+				continue
+			var t: float = clamp(rel.dot(d), 0.0, 230.0)
+			score = minf(score, (rel - d * t).length() - isl.r)
+		if score > best_score:
+			best_score = score
+			best_a = a
+	var d := Vector3(cos(best_a), 0, sin(best_a))
+	var padp := rim(c, d, 3.0)
+	var cy := padp.y
+	var pts: Array[Vector3] = []
+	for i in 3:
+		var p := c + d * (r0 + 17.0 + 38.0 * i)
+		p.y = cy + 10.0 - 2.5 * i
+		pts.append(p)
+	var tp: Vector3 = pts[-1] + d * 50.0
+	tp.y = pts[-1].y - 7.0
+	island("island_mid", tp, rng.randf() * TAU, 10.0, {"flowers": true})
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_grass(_islands[-1])
+	pad(padp.x, padp.z, cy)
+	for p in pts:
+		ring(p, p + d * 20.0)
+	var g := ground_pos(tp.x, tp.z, tp.y)
+	var lamp := cairn(g.x - d.z * 4.0, g.z + d.x * 4.0, g.y)
+	lamp.scale = Vector3.ONE * 0.9
+	return g
+
+
+## Falling rocks around the start island's rim while it collapses. Free the node to stop it.
+func collapse_fx(c: Vector3, r: float) -> Node3D:
+	var holder := Node3D.new()
+	add_child(holder)
+	var tm := Timer.new()
+	tm.wait_time = 0.22
+	tm.autostart = true
+	holder.add_child(tm)
+	var rocks := ["rock_a", "rock_b", "rock_c", "rock_d"]
+	tm.timeout.connect(func():
+		var a := randf() * TAU
+		var p := c + Vector3(cos(a), 0, sin(a)) * r * randf_range(0.75, 1.05)
+		var g := ground_pos(p.x, p.z, c.y)
+		var rock := Assets.spawn(rocks[randi() % rocks.size()], false)
+		rock.position = g + Vector3.DOWN * randf_range(0.5, 3.0)
+		rock.scale = Vector3.ONE * randf_range(0.6, 1.5)
+		holder.add_child(rock)
+		var t := rock.create_tween().set_parallel(true)
+		t.tween_property(rock, "position:y", rock.position.y - 90.0, 3.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		t.tween_property(rock, "rotation", Vector3(randf() * 4.0, randf() * 4.0, randf() * 4.0), 3.5)
+		t.chain().tween_callback(rock.queue_free)
+		if randf() < 0.12:
+			Sound.play_at("crack", g, -4.0, randf_range(0.8, 1.1)))
+	return holder
+
+
 # ------------------------------------------------------------ enemies + checkpoints
 
 func wisp(home: Vector3, radius := 6.0, night_only := false) -> Wisp:
+	_wisps += 1
+	if not decor_only and not Difficulty.keep_enemy(_wisps):
+		return null
 	var w := Wisp.new()
 	w.home = home
 	w.radius = radius
@@ -595,6 +704,9 @@ func wisp(home: Vector3, radius := 6.0, night_only := false) -> Wisp:
 
 
 func sentinel(x: float, z: float, near_y: float) -> Sentinel:
+	_sentinels += 1
+	if not decor_only and not Difficulty.keep_enemy(_sentinels + 1):
+		return null
 	var s := Sentinel.new()
 	s.position = ground_pos(x, z, near_y) - Vector3(0, 0.1, 0)
 	s.rotation.y = rng.randf() * TAU

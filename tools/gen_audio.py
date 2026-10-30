@@ -246,3 +246,15 @@ save("bell_ring", reverbish(add(bell(392.0, 3.5, 1.2), 0.5 * bell(587.3, 3.0, 0.
 save("fragment", reverbish(add(bell(1567.98, 1.4, 0.5), 0.5 * bell(2093.0, 1.0, 0.3)), 0.4), 0.55)
 tt = t(1.4)
 save("echo", reverbish(sum(np.sin(2 * np.pi * f * tt) * np.exp(-tt * 2.5) * (0.5 + 0.5 * np.sin(2 * np.pi * 9 * tt)) for f in (880, 1108.7, 1318.5)), 0.6), 0.5)
+
+# ---------------------------------------------------------------- added: island collapse / lore
+tt = t(7.0)
+ru = lp(noise(7.0), 90, 3) * 3 + lp(noise(7.0), 300, 2) * 0.4 * (0.5 + 0.5 * np.sin(2 * np.pi * 1.5 * tt))
+ru *= 0.65 + 0.35 * np.sin(2 * np.pi * 0.5 * tt)
+loop = ru[:SR * 6].copy()
+ramp = np.linspace(0, 1, SR)
+loop[:SR] = loop[:SR] * ramp + ru[SR * 6:SR * 7] * (1 - ramp)
+save("rumble", loop, 0.8)
+tt = t(1.6)
+save("crack", lp(noise(1.6), 250, 2) * np.exp(-tt * 3) * 2 + hp(noise(1.6), 1500) * np.exp(-tt * 25), 0.8)
+save("lore", reverbish(add(bell(659.25, 2.5, 0.4), 0.6 * bell(987.77, 2.2, 0.3), 0.4 * bell(1318.5, 1.8, 0.2)), 0.6), 0.5)

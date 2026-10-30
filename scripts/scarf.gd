@@ -6,7 +6,8 @@ const SEGMENTS := 10
 const SEG_LEN := 0.15
 const ANCHOR := Vector3(0, 1.16, 0.1)
 
-var player: Player
+var player: Node3D  ## the body the scarf trails behind
+var model: Node3D  ## the visual model it is tied to
 var _pts := PackedVector3Array()
 var _prev := PackedVector3Array()
 var _mesh := ImmediateMesh.new()
@@ -17,7 +18,7 @@ func _ready() -> void:
 	top_level = true
 	global_transform = Transform3D.IDENTITY
 	mesh = _mesh
-	material_override = Mats.get_mat("scarf")
+	material_override = Cosmetics.scarf_material()
 	extra_cull_margin = 4.0
 	var a := _anchor()
 	for i in SEGMENTS:
@@ -26,7 +27,7 @@ func _ready() -> void:
 
 
 func _anchor() -> Vector3:
-	return player.model.global_transform * ANCHOR
+	return model.global_transform * ANCHOR
 
 
 func _physics_process(dt: float) -> void:
@@ -34,7 +35,7 @@ func _physics_process(dt: float) -> void:
 	var dt2 := dt * dt
 	_pts[0] = _anchor()
 	_prev[0] = _pts[0]
-	var side := player.model.global_basis.x
+	var side := model.global_basis.x
 	var center := player.global_position
 	for i in range(1, SEGMENTS):
 		var v := (_pts[i] - _prev[i]) * 0.93
@@ -57,7 +58,7 @@ func _physics_process(dt: float) -> void:
 func _process(_dt: float) -> void:
 	_mesh.clear_surfaces()
 	_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	var side := player.model.global_basis.x
+	var side := model.global_basis.x
 	for i in SEGMENTS:
 		var t := float(i) / (SEGMENTS - 1)
 		var w := 0.075 * (1.0 - t * 0.45)

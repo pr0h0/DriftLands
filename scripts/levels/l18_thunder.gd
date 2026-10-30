@@ -17,7 +17,7 @@ func _init() -> void:
 func plan() -> void:
 	var a := rings(S, 0.0, 3, "island_tall")
 	a = rings(a, 10.0, 2, "island_mid")
-	finish(a, "free", 1, 2)
+	finish(a, "free", 1, 2, true)
 	var b := ferry(S, 120.0, "island_long")
 	b = vent(b, 125.0, 16.0, "island_flat")
 	finish(b, "plates", 2, 1)

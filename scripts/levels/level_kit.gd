@@ -258,8 +258,9 @@ func carousel_hop(cur: Dictionary, ang: float) -> Dictionary:
 # ------------------------------------------------------------ route ends
 
 ## Shard (optionally sealed), enemies, and a return vent sized to glide home to S.
-## puzzle: "free", "plates", "bells", "mirror"
-func finish(n: Dictionary, puzzle := "free", wisps := 0, sentinels := 0) -> void:
+## puzzle: "free", "plates", "bells", "mirror"; `carry` makes the shard a light orb you must
+## walk/glide back to the beacon by hand.
+func finish(n: Dictionary, puzzle := "free", wisps := 0, sentinels := 0, carry := false) -> void:
 	var d := _dir(_ang_of(n))
 	var side := d.cross(Vector3.UP)
 	var c: Vector3 = n.pos
@@ -274,11 +275,12 @@ func finish(n: Dictionary, puzzle := "free", wisps := 0, sentinels := 0) -> void
 	assert(puzzle not in ["mirror", "plates"] or r >= 9.0, "mirror/plate puzzles need an island of radius >= 9")
 	_deco.erase(n)
 	_deco.append(n)
-	_later.append(_finish_now.bind(n, puzzle, wisps, sentinels, d, side, c, r, vp, h))
+	_later.append(_finish_now.bind(n, puzzle, wisps, sentinels, d, side, c, r, vp, h, carry))
 
 
-func _finish_now(n: Dictionary, puzzle: String, wisps: int, sentinels: int, d: Vector3, side: Vector3, c: Vector3, r: float, vp: Vector3, h: float) -> void:
+func _finish_now(n: Dictionary, puzzle: String, wisps: int, sentinels: int, d: Vector3, side: Vector3, c: Vector3, r: float, vp: Vector3, h: float, carry: bool) -> void:
 	var shard := shrine_shard(c.x - side.x * 1.5, c.z - side.z * 1.5, c.y)
+	shard.carry = carry
 	match puzzle:
 		"plates":
 			var p1 := plate(c.x - side.x * 4.5 - d.x * 3.0, c.z - side.z * 4.5 - d.z * 3.0, c.y)

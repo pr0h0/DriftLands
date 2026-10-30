@@ -25,7 +25,7 @@ func plan() -> void:
 	finish(b, "plates", 1, 0)
 	var c := rings(S, 150.0, 3, "island_mid")
 	c = vent(c, 155.0, 14.0, "island_small_c")
-	finish(c, "free", 1, 1)
+	finish(c, "free", 1, 1, true)
 
 
 func on_start() -> void:
