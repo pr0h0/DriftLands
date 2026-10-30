@@ -494,8 +494,10 @@ func _ascend(center: Vector3) -> void:
 		player.global_position = Vector3(center.x + cos(a) * r, start.y + k * k * 80.0, center.z + sin(a) * r)
 		player.model.rotation.y = -a
 		player.model.rotation.x = -0.3
-		player.pitch = lerp(player.pitch, 0.55, 0.03)
-		player.pivot.global_position = player.pivot.global_position.lerp(player.global_position + Vector3(0, 1.5, 0), 0.03)
+		# Keep the camera tight on the rising wanderer, tilted up just enough to show the sky above.
+		var f := 1.0 - exp(-10.0 * get_process_delta_time())
+		player.pitch = lerp(player.pitch, 0.3, f * 0.3)
+		player.pivot.global_position = player.pivot.global_position.lerp(player.global_position + Vector3(0, 1.5, 0), f)
 		player.pivot.rotation = Vector3(player.pitch, player.yaw, 0), 0.0, 1.0, 5.0)
 	tw.parallel().tween_callback(func(): hud.flash(1.0)).set_delay(4.2)
 	await tw.finished
@@ -874,7 +876,7 @@ func _touch_test() -> void:
 	get_tree().quit()
 
 
-## Stages a feature for a screenshot: "finale" (escape), "lore", "carry".
+## Stages a feature for a screenshot: "finale" (escape), "lore", "carry", "ascend" (beam ride).
 func _shot_setup(what: String) -> void:
 	var face := func(target: Vector3):
 		var d := target - player.global_position
@@ -902,6 +904,17 @@ func _shot_setup(what: String) -> void:
 			face.call(ls.global_position)
 			player.yaw += 0.5
 			ls.interact()
+		"ascend":
+			var m: Vector3 = level.monolith.global_position
+			player.teleport(m + Vector3(3.0, 0.5, 0))
+			await get_tree().create_timer(0.5).timeout
+			_ascend(m)
+			for t in 4:  # where the wanderer sits on screen as it rises (0..1 = inside the view)
+				await get_tree().create_timer(1.0).timeout
+				var cam := get_viewport().get_camera_3d()
+				var p := player.global_position + Vector3.UP
+				var uv := cam.unproject_position(p) / get_viewport().get_visible_rect().size
+				print("ascend t=%ds rise=%.1fm screen=%s behind=%s" % [t + 1, p.y - m.y, uv.snappedf(0.01), cam.is_position_behind(p)])
 		"carry":
 			var st: PushStone = get_tree().get_nodes_in_group("push_stone")[0]
 			player.teleport(st.global_position + Vector3(1.5, 0.3, 0))
