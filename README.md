@@ -1,0 +1,73 @@
+# Driftlands
+
+*Carry the light home.*
+
+Driftlands is a calm 3D exploration and glider game set on floating islands above a sea of clouds.
+You play a small hooded wanderer who recovers lost light shards and returns them to each island's
+beacon. To get around, you glide between islands, ride updrafts and solve light and stone puzzles.
+
+Built with **Godot 4.7**. Every model is generated procedurally by headless **Blender** scripts and
+every sound is synthesized in **Python**. The nature props are Quaternius' CC0 Stylized Nature MegaKit.
+
+![Title screen](docs/screenshots/title.jpg)
+
+| | |
+|---|---|
+| ![Ruins](docs/screenshots/ruins.jpg) | ![The wanderer](docs/screenshots/wanderer.jpg) |
+| ![Frostveil at night](docs/screenshots/frostveil.jpg) | ![Glass Expanse](docs/screenshots/glass_expanse.jpg) |
+
+![Cloud sea](docs/screenshots/cloud_sea.jpg)
+
+## Features
+
+- **21 levels in three chapters**: *The Fading Light*, *The Far Reaches* and *The First Light*.
+  Their biomes are meadow, ash, snow, desert, crystal and storm.
+- **Glide-based traversal**: updrafts, boost rings, launch pads, gusts, mantling, bounce mushrooms,
+  and moving, orbiting, crumbling and phasing platforms.
+- **Puzzles**: rotating mirrors and light beams, prism splits, pressure plates with push stones,
+  sundials, resonance bells, levers with turning causeways, and night-sky constellations.
+- **Threats**: wisps and sentinels you can block with a shield. Each level gives you hearts and lives.
+- **Day/night cycle**: weather, aurora and storms with lightning, plus generative music that
+  follows the mood of each level.
+- **Per-level challenges and stars**: flawless runs, time targets and hidden fragments,
+  with secret islands to find. Practice and Challenge modes are available.
+- **Photo mode**, three HUD layouts, rebindable keys, quality presets and autosave.
+
+## Controls
+
+| Action | Keys |
+|---|---|
+| Move | WASD / arrow keys |
+| Jump / glide | Space (in the air) |
+| Run / dive, sink in an updraft | Shift |
+| Interact | E / F |
+| Shield (hold) | Q / C |
+| Return to safe ground | R |
+| Photo mode | F2 |
+| Pause | Esc / P |
+| Fullscreen | F11 |
+
+Use the mouse to steer the camera. Keys can be rebound in Settings.
+
+## Running
+
+Open `project.godot` in Godot 4.7 and press Play, or play it in the browser:
+
+```sh
+tools/web.sh          # exports the web build and serves it on http://localhost:4956
+```
+
+## Development
+
+```sh
+# Regenerate models (headless Blender) and audio
+blender -b -P tools/blender/build_assets.py -- assets/models [names...]
+python3 tools/gen_audio.py
+
+# Sanity-check a level headlessly
+godot --headless -- --level=12 --audit
+```
+
+- Levels live in `scripts/levels/`. Levels 1–10 are hand-built; levels 11–21 use the route kit
+  (`level_kit.gd`), which places islands from glide physics.
+- Deferred ideas are tracked in [`docs/ROADMAP.md`](docs/ROADMAP.md).
