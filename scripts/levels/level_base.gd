@@ -690,6 +690,15 @@ func build_escape() -> Vector3:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	_grass(_islands[-1])
+	# Clear props over the pad's launch column (they were scattered before the escape existed).
+	for n in get_children():
+		var n3 := n as Node3D
+		if n3 == null or n3 == monolith or n3 is MultiMeshInstance3D or n3 is GPUParticles3D:
+			continue
+		var dp := n3.global_position - padp
+		if Vector2(dp.x, dp.z).length() < 4.0 and absf(dp.y) < 4.0:
+			n3.queue_free()
+	await get_tree().physics_frame
 	pad(padp.x, padp.z, cy)
 	for p in pts:
 		ring(p, p + d * 20.0)

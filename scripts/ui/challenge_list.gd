@@ -19,6 +19,8 @@ func _rows() -> Array:
 	var s := session
 	if s == null or s.level == null or s.player == null:
 		return []
+	if s.level is RunLevel:
+		return (s.level as RunLevel).hud_rows()
 	var total := s.level.fragments.size()
 	var found := Progress.fragments(s.level_id).size()
 	var earned: Dictionary = Progress.level_info(s.level_id).get("challenges", {})

@@ -19,11 +19,17 @@ bridges, prism splitting, resonance bells, compass, button states) is being buil
   (scripts/levels/level_kit.gd): hops derived from glide physics, auto return vents, auto extras.
   Run `godot --headless -- --level=N --audit` to sanity-check any level.
 
+## Done since (2026-10-30, later)
+- Wardrobe (masks/scarves/robes), title island that grows with progress + roaming Wanderer,
+  carrying stones and light orbs, beacon-beam ascent ending, collapsing chapter finales with an
+  escape timer, lore stones + Journal, difficulty, Endless Flight and three time trials.
+
 ## Later: worth doing (real chunks of work)
 - **Wind surfing**: curved/spiraling wind currents along splines that carry the glider. Top pick.
 - **Tilting islands** (rotation is done as turning causeways; tilting not yet).
 - **Charged storm clouds**: warning pulse -> lightning zone -> discharge updraft (storm levels).
-- **Ghost replays** of personal-best runs (record sampled transforms).
+- **Ghost replays** of personal-best runs (record sampled transforms); great fit for time trials.
+- Gamepad support.
 - **More chapter II/III levels**: Hanging Wilds (vertical forest, bounce flora), The First Beacon
   (finale). Vary layouts: not always east/north/west (chapter II still uses three spokes).
 - Audit vertical-slice idea: polish Windward Reach to "excellent", then roll standards out.

@@ -77,6 +77,11 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(level.shards.size())
 	hud.set_lives(lives if Settings.get_v("challenge") else -1)
+	if level is RunLevel:
+		var run := level as RunLevel
+		hud.set_lives(run.lives if run.mode == "endless" else -1)
+		run.run_over.connect(_on_run_over)
+		player.fell.connect(run.on_fell)
 	var found: Array = Progress.fragments(level_id)
 	for i in level.fragments.size():
 		var f: Fragment = level.fragments[i]
@@ -147,6 +152,9 @@ func _ready() -> void:
 			o = hit.position + d * 0.05
 		get_tree().quit()
 		return
+	if args.has("runtest"):
+		await _run_test()
+		return
 	if args.has("featuretest"):
 		await _feature_test()
 		return
@@ -216,6 +224,8 @@ func first_hint(key: String, text: String) -> void:
 
 func set_checkpoint(pos: Vector3) -> void:
 	checkpoint_pos = pos
+	if level is RunLevel:
+		return
 	player.heal_full()
 	Progress.set_checkpoint(level_id, collected, pos, elapsed, lives)
 	hud.hint("Hearts restored", 2.0)
@@ -254,6 +264,14 @@ func _on_fragment(f: Fragment) -> void:
 ## Challenge: lose a life and wake on the middle island (shards kept); out of lives restarts.
 func _on_died(cost_life := true) -> void:
 	if finished:
+		return
+	if level is RunLevel:
+		hud.flash(0.9, Color(0.1, 0.05, 0.1))
+		player.teleport(checkpoint_pos)
+		player.last_safe = checkpoint_pos
+		player.heal_full()
+		player._invuln = 2.0
+		(level as RunLevel).on_fell()
 		return
 	if not Settings.get_v("challenge"):
 		hud.flash(0.9, Color(0.1, 0.05, 0.1))
@@ -481,6 +499,23 @@ func _ascend(center: Vector3) -> void:
 	_complete(_finish_time)
 
 
+func _on_run_over(result: Dictionary) -> void:
+	finished = true
+	player.input_enabled = false
+	player.velocity = Vector3.ZERO
+	if result["won"]:
+		Sound.play("beacon")
+		hud.flash(0.6)
+	else:
+		hud.flash(1.0, Color(0.05, 0.03, 0.06))
+	await get_tree().create_timer(2.0).timeout
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	var rr := RunResults.new().setup(result)
+	add_child(rr)
+	rr.again.connect(func(): to_level.emit(level_id, false))
+	rr.quit_to_menu.connect(func(): to_menu.emit())
+
+
 func _complete(time: float) -> void:
 	finished = true
 	var best := Progress.complete(level_id, time)
@@ -669,6 +704,31 @@ func _audit() -> void:
 	get_tree().quit()
 
 
+## Teleports along a run's island chain to exercise scoring, generation, pruning and finishing.
+func _run_test() -> void:
+	var run := level as RunLevel
+	var over := []
+	run.run_over.connect(func(r): over.append(r))
+	print("RT chain=%d medals=%s" % [run.chain.size(), run.medals])
+	for k in range(1, int(args["runtest"])):
+		if k >= run.chain.size() or not over.is_empty():
+			break
+		var n: Dictionary = run.chain[k]
+		var g := level.ground_pos(n.pos.x, n.pos.z, n.pos.y)
+		player.teleport(g + Vector3(0, 0.5, 0))
+		for i in 30:
+			await get_tree().physics_frame
+		if k % 5 == 0:
+			print("RT k=%d reached=%d chain=%d children=%d" % [k, run.reached, run.chain.size(), level.get_child_count()])
+	if run.mode == "endless":
+		for i in run.lives:
+			player.respawn(true)
+			await get_tree().create_timer(0.3).timeout
+	await get_tree().create_timer(0.5).timeout
+	print("RT over=%s" % [over])
+	get_tree().quit()
+
+
 ## Exercises stone carrying, light-orb delivery, the beacon ascent and the escape.
 func _feature_test() -> void:
 	var wait := func(sec: float): await get_tree().create_timer(sec).timeout
@@ -716,6 +776,19 @@ func _feature_test() -> void:
 			return
 		await wait.call(3.0)
 		print("FT escape platform %s timer %.1f" % [_ascend_at.snappedf(0.1), _collapse_left])
+		if args.has("flyescape"):
+			var pad: Node3D = level.find_children("*", "LaunchPad", true, false)[-1]
+			var d := (_ascend_at - pad.global_position).slide(Vector3.UP).normalized()
+			player.teleport(pad.global_position + Vector3.UP * 0.4)
+			player.debug_dir = d
+			for i in 60:
+				await get_tree().physics_frame
+				if player.velocity.y < 0.0 and not player.is_on_floor():
+					player.set_gliding(true)
+					player.glide_heading = d
+					break
+			await wait.call(14.0)
+			print("FT flew to %s, platform %s, dist %.1f" % [player.global_position.snappedf(0.1), _ascend_at.snappedf(0.1), player.global_position.distance_to(_ascend_at)])
 	player.teleport(_ascend_at + Vector3(1.5, 0.3, 0))
 	await wait.call(7.0)
 	print("FT finished=%s time=%.1f done=%s" % [finished, _finish_time, Progress.level_info(level_id).get("done", false)])
@@ -748,6 +821,42 @@ func _beam_test() -> void:
 	get_tree().quit()
 
 
+## Stages a feature for a screenshot: "finale" (escape), "lore", "carry".
+func _shot_setup(what: String) -> void:
+	var face := func(target: Vector3):
+		var d := target - player.global_position
+		player.yaw = atan2(-d.x, -d.z)
+		player.model.rotation.y = player.yaw
+	match what:
+		"finale":
+			for sh in level.shards:
+				sh.taken = true
+				sh.delivered = true
+				_on_shard_collected(sh)
+			await get_tree().create_timer(14.0).timeout
+			var pads := level.find_children("*", "LaunchPad", true, false)
+			var pad: Node3D = pads[-1]
+			var out := (pad.global_position - level.monolith.global_position).slide(Vector3.UP).normalized()
+			player.teleport(pad.global_position - out * 4.0 + Vector3.UP * 0.5)
+			await get_tree().create_timer(0.5).timeout
+			face.call(pad.global_position + out * 40.0)
+			player.pitch = deg_to_rad(-4.0)
+		"lore":
+			var ls: Node3D = level.find_children("*", "LoreStone", true, false)[0]
+			var fwd := ls.global_basis.z
+			player.teleport(ls.global_position + fwd * 2.6 + Vector3.UP * 0.3)
+			await get_tree().create_timer(0.5).timeout
+			face.call(ls.global_position)
+			player.yaw += 0.5
+			ls.interact()
+		"carry":
+			var st: PushStone = get_tree().get_nodes_in_group("push_stone")[0]
+			player.teleport(st.global_position + Vector3(1.5, 0.3, 0))
+			await get_tree().create_timer(0.5).timeout
+			st.interact()
+			player.yaw = deg_to_rad(float(args.get("yaw", "0")))
+
+
 func _screenshot() -> void:
 	cycle.paused = true
 	player.input_enabled = false
@@ -774,6 +883,8 @@ func _screenshot() -> void:
 			player.glider.scale = Vector3.ONE
 			player.model.rotation.x = -0.3
 		player.set_physics_process(false)
+	if args.has("do"):
+		await _shot_setup(String(args["do"]))
 	if args.has("wisp"):
 		var w := Wisp.new()
 		w.home = _vec(args["wisp"])

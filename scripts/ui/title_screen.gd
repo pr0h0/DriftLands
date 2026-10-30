@@ -219,6 +219,7 @@ func _show_main() -> void:
 		_menu.add_child(UITheme.button("Continue  ·  " + Levels.LIST[nid - 1]["title"], func(): start_level.emit(nid, false)))
 	_menu.add_child(UITheme.button("New game", _new_game))
 	_menu.add_child(UITheme.button("Chapters", _show_chapters))
+	_menu.add_child(UITheme.button("Endless & Trials", _show_modes))
 	_menu.add_child(UITheme.button("Wardrobe", _show_wardrobe))
 	_menu.add_child(UITheme.button("Journal", _show_journal))
 	_menu.add_child(UITheme.button("Settings", _show_settings))
@@ -404,4 +405,31 @@ func _show_journal() -> void:
 			body.modulate = Color(1, 0.94, 0.86, 0.85)
 			body.add_theme_font_size_override("font_size", 16)
 			list.add_child(body)
+	v.add_child(UITheme.button("Back", _show_main, 200))
+
+
+# ------------------------------------------------------------ endless + trials
+
+func _show_modes() -> void:
+	_clear_pages()
+	var v := _panel_page()
+	v.add_child(UITheme.title_label("Endless & Trials", 40))
+	var runs: Dictionary = Progress.data.get("runs", {})
+	for id in Levels.MODES:
+		var m: Dictionary = Levels.MODES[id]
+		var rec: Dictionary = runs.get("endless" if m["mode"] == "endless" else "trial_%d" % id, {})
+		var best := ""
+		if rec.has("best"):
+			best = "   ·  best %d islands" % int(rec["best"]) if m["mode"] == "endless" else "   ·  best %s" % Levels.format_time(float(rec["best"]))
+		v.add_child(UITheme.button("%s%s" % [m["title"], best], func(): start_level.emit(id, false), 640))
+		var d := Label.new()
+		d.text = "     " + m["sub"]
+		d.modulate = Color(1, 0.94, 0.86, 0.85)
+		d.add_theme_font_size_override("font_size", 16)
+		v.add_child(d)
+	var note := Label.new()
+	note.text = "Difficulty (Settings) sets your falls in Endless Flight."
+	note.modulate = Color(1, 1, 1, 0.55)
+	note.add_theme_font_size_override("font_size", 15)
+	v.add_child(note)
 	v.add_child(UITheme.button("Back", _show_main, 200))

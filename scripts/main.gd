@@ -30,9 +30,9 @@ func _ready() -> void:
 		start_level(int(args["level"]), args.has("resume"), args)
 	else:
 		await show_title()
-		if args.has("wardrobe"):
+		if args.has("page"):  # debug: wardrobe, journal, modes, chapters
 			await get_tree().create_timer(1.5).timeout
-			(current as TitleScreen)._show_wardrobe()
+			current.call("_show_" + String(args["page"]))
 		if args.has("shot"):
 			for i in int(args.get("frames", "120")):
 				await get_tree().process_frame
@@ -115,7 +115,7 @@ func show_title() -> void:
 
 
 func start_level(id: int, resume := false, args := {}) -> void:
-	await _veil(true, Levels.LIST[id - 1]["title"])
+	await _veil(true, Levels.title_of(id))
 	var s := Session.new()
 	s.level_id = id
 	s.resume = resume

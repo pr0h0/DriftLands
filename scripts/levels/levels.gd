@@ -25,6 +25,14 @@ const LIST := [
 	{"title": "The First Beacon", "sub": "Every mechanic, every route, the final light", "script": "res://scripts/levels/l21_first.gd", "chapter": 3, "escape": true},
 ]
 
+## Modes outside the campaign (ids >= 100), see run_level.gd.
+const MODES := {
+	100: {"title": "Endless Flight", "sub": "How far can the wind carry you?", "mode": "endless", "theme": "meadow"},
+	101: {"title": "Meadow Gates", "sub": "Time trial · eight hops through golden meadows", "mode": "trial", "theme": "meadow", "seed": 5101},
+	102: {"title": "Frost Run", "sub": "Time trial · ice, rings and updrafts", "mode": "trial", "theme": "frost", "seed": 5202},
+	103: {"title": "Ember Dash", "sub": "Time trial · ten hops over burning skies", "mode": "trial", "theme": "ember", "seed": 5303, "hops": 10},
+}
+
 const CHAPTERS := {1: "Chapter I  ·  The Fading Light", 2: "Chapter II  ·  The Far Reaches", 3: "Chapter III  ·  The First Light"}
 
 
@@ -36,7 +44,21 @@ static func count() -> int:
 	return LIST.size()
 
 
+static func title_of(id: int) -> String:
+	return MODES[id]["title"] if id >= 100 else LIST[id - 1]["title"]
+
+
 static func make(id: int) -> LevelBase:
+	if id >= 100:
+		var m: Dictionary = MODES[id]
+		var run := RunLevel.new()
+		run.level_id = id
+		run.configure(m["mode"], m["theme"], int(m.get("seed", randi() % 100000)))
+		run.trial_hops = int(m.get("hops", 8))
+		run.title = m["title"]
+		run.subtitle = m["sub"]
+		run.lives = Difficulty.lives()
+		return run
 	var lvl: LevelBase = load(LIST[id - 1]["script"]).new()
 	lvl.level_id = id
 	if LIST[id - 1].get("escape", false):

@@ -139,6 +139,7 @@ func _widgets() -> void:
 	meter = ShardMeter.new()
 	meter.total = _shards_total
 	meter.count = _shards
+	meter.visible = _shards_total > 0
 	hearts = HeartsBar.new()
 	hearts.current = _health
 	lives_bar = LivesBar.new()
@@ -287,6 +288,7 @@ func _process(_dt: float) -> void:
 func setup(total_shards: int) -> void:
 	_shards_total = total_shards
 	meter.total = total_shards
+	meter.visible = total_shards > 0
 
 
 func hint(text: String, duration := 5.0) -> void:
@@ -387,14 +389,18 @@ func _build_lore_panel() -> void:
 	v.add_child(_lore_text)
 	lore_panel.modulate.a = 0.0
 	_root.add_child(lore_panel)
-	lore_panel.resized.connect(func(): lore_panel.position = (_root.size - lore_panel.size) / 2.0 - Vector2(0, 80))
+	lore_panel.resized.connect(_place_lore_panel)
+
+
+func _place_lore_panel() -> void:
+	lore_panel.position = Vector2((_root.size.x - lore_panel.size.x) / 2.0, _root.size.y * 0.07)
 
 
 ## A page of the story, read from a lore stone.
 func show_lore(t: String, text: String, first: bool) -> void:
 	_lore_title.text = t
 	_lore_text.text = text + ("\n\n· added to your journal ·" if first else "")
-	lore_panel.position = (_root.size - lore_panel.size) / 2.0 - Vector2(0, 80)
+	_place_lore_panel()
 	if _lore_tween:
 		_lore_tween.kill()
 	_lore_tween = create_tween()

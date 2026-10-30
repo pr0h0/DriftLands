@@ -24,6 +24,11 @@ every sound is synthesized in **Python**. The nature props are Quaternius' CC0 S
   Their biomes are meadow, ash, snow, desert, crystal and storm.
 - **Glide-based traversal**: updrafts, boost rings, launch pads, gusts, mantling, bounce mushrooms,
   and moving, orbiting, crumbling and phasing platforms.
+- **Beacon endings**: once the three shards are home, step into the beacon's light and rise out
+  of the level. In each chapter finale the island collapses on a timer, and you have to ride the
+  rings to an escape platform before it falls.
+- **Carrying**: lift push stones and carry them (drop them by jumping), and bring heavy light
+  orbs to the beacon by hand. A hit or a fall sends an orb back to its shrine.
 - **Puzzles**: rotating mirrors and light beams, prism splits, pressure plates with push stones,
   sundials, resonance bells, levers with turning causeways, and night-sky constellations.
 - **Threats**: wisps and sentinels you can block with a shield. Each level gives you hearts and lives.
@@ -31,6 +36,12 @@ every sound is synthesized in **Python**. The nature props are Quaternius' CC0 S
   follows the mood of each level.
 - **Per-level challenges and stars**: flawless runs, time targets and hidden fragments,
   with secret islands to find. Practice and Challenge modes are available.
+- **Endless Flight and time trials**: an endless island chain that generates ahead of you,
+  plus three trial courses with gold, silver and bronze times.
+- **Difficulty** (Easy / Normal / Hard): changes lives, time goals, the fragment goal and enemy count.
+- **Wardrobe**: unlock masks, scarves and robes with fragments, stars and completed levels.
+- **Journal**: a carved lore stone near each beacon tells part of the story.
+- **A living title screen**: the home island grows as you light beacons, and the wanderer roams it.
 - **Photo mode**, three HUD layouts, rebindable keys, quality presets and autosave.
 
 ## Controls
@@ -40,7 +51,7 @@ every sound is synthesized in **Python**. The nature props are Quaternius' CC0 S
 | Move | WASD / arrow keys |
 | Jump / glide | Space (in the air) |
 | Run / dive, sink in an updraft | Shift |
-| Interact | E / F |
+| Interact, lift / set down stones | E / F |
 | Shield (hold) | Q / C |
 | Return to safe ground | R |
 | Photo mode | F2 |
