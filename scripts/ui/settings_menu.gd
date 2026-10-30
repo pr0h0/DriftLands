@@ -21,7 +21,10 @@ func _ready() -> void:
 	v.add_child(tabs)
 
 	var g := _page(tabs, "Gameplay")
-	_slider(g, "Look sensitivity" if Touch.active else "Mouse sensitivity", "mouse_sens", 0.2, 3.0, 0.05, "%.2f×")
+	if Touch.active:
+		_slider(g, "Look sensitivity", "touch_sens", 0.2, 3.0, 0.05, "%.2f×")
+	else:
+		_slider(g, "Mouse sensitivity", "mouse_sens", 0.2, 3.0, 0.05, "%.2f×")
 	_check(g, "Invert vertical look", "invert_y")
 	_slider(g, "Field of view", "fov", 60, 100, 1, "%d°")
 	_check(g, "Auto-center camera while gliding", "camera_auto")

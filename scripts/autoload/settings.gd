@@ -26,6 +26,7 @@ const ACTIONS := {
 
 var values := {
 	"mouse_sens": 1.0,
+	"touch_sens": 1.0,
 	"invert_y": false,
 	"fov": 70.0,
 	"camera_auto": true,

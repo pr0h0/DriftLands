@@ -7,8 +7,9 @@ extends CanvasLayer
 signal toggled(on: bool)
 
 const BASE_SIZE := Vector2i(1280, 720)  # logical UI size while active (width expands)
-const STICK_R := 70.0
-const LOOK_SENS := 0.0065  # radians per logical pixel at 1.0× sensitivity
+const STICK_R := 85.0
+const STICK_DEADZONE := 0.25  # of the stick radius: thumb wobble near the center does nothing
+const LOOK_SENS := 0.0025  # radians per logical pixel at 1.0× touch sensitivity
 
 var active := false
 
@@ -192,14 +193,22 @@ func _touch_drag(id: int, pos: Vector2, rel: Vector2, p: Player) -> void:
 			d = pos - _stick_origin
 		_set_stick(d / STICK_R)
 	elif id == _look_id:
-		p.look_by(rel, LOOK_SENS)
+		p.look_by(rel, LOOK_SENS * float(Settings.get_v("touch_sens")))
 
 
+## v is the thumb offset in stick radii. A dead zone and a curve keep small pushes gentle:
+## a light push walks slowly, the outer ring runs at full speed.
 func _set_stick(v: Vector2) -> void:
 	_stick_vec = v
-	for pair in [["move_right", v.x], ["move_left", -v.x], ["move_back", v.y], ["move_forward", -v.y]]:
-		if pair[1] > 0.05:
-			Input.action_press(pair[0], minf(pair[1], 1.0))
+	var out := Vector2.ZERO
+	var l := minf(v.length(), 1.0)
+	if l > STICK_DEADZONE:
+		var t := (l - STICK_DEADZONE) / (1.0 - STICK_DEADZONE)
+		# Input.get_vector() applies the actions' own 0.2 dead zone again, so start past it.
+		out = v.normalized() * (0.2 + 0.8 * pow(t, 1.5))
+	for pair in [["move_right", out.x], ["move_left", -out.x], ["move_back", out.y], ["move_forward", -out.y]]:
+		if pair[1] > 0.0:
+			Input.action_press(pair[0], pair[1])
 		else:
 			Input.action_release(pair[0])
 
@@ -254,7 +263,7 @@ func _draw_controls() -> void:
 	var origin := _stick_origin if _stick_id != -1 else Vector2(170, s.y - 170)
 	ci.draw_circle(origin, STICK_R, Color(0, 0, 0, 0.18 if _stick_id != -1 else 0.1))
 	ci.draw_arc(origin, STICK_R, 0, TAU, 48, Color(1, 0.97, 0.9, 0.5 if _stick_id != -1 else 0.25), 3.0, true)
-	ci.draw_circle(origin + _stick_vec * STICK_R, 30.0, Color(1, 0.97, 0.9, 0.55 if _stick_id != -1 else 0.25))
+	ci.draw_circle(origin + _stick_vec.limit_length(1.0) * STICK_R, 30.0, Color(1, 0.97, 0.9, 0.55 if _stick_id != -1 else 0.25))
 	var held := _pressed.values()
 	for name in _buttons:
 		if not _button_shown(name):

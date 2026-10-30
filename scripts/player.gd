@@ -178,7 +178,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not input_enabled:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not Touch.active:
-		look_by(event.relative, MOUSE_SENS)
+		look_by(event.relative, MOUSE_SENS * float(Settings.get_v("mouse_sens")))
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not Touch.active:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event.is_action_pressed("respawn"):
@@ -189,9 +189,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		interact_target.interact()
 
 
-## Turns the camera by a mouse or touch drag (pixels × radians per pixel at 1.0× sensitivity).
-func look_by(rel: Vector2, per_px: float) -> void:
-	var sens: float = per_px * float(Settings.get_v("mouse_sens"))
+## Turns the camera by a mouse or touch drag (pixels × radians per pixel, sensitivity included).
+func look_by(rel: Vector2, sens: float) -> void:
 	yaw -= rel.x * sens
 	var dy: float = rel.y * sens * (-1.0 if Settings.get_v("invert_y") else 1.0)
 	pitch = clamp(pitch - dy, -1.3, 0.6)
