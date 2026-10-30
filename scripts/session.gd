@@ -730,6 +730,15 @@ func _run_test() -> void:
 			player.respawn(true)
 			await get_tree().create_timer(0.3).timeout
 	await get_tree().create_timer(0.5).timeout
+	var kinds := {}
+	var biomes := []
+	for n in run.chain:
+		kinds[n.get("kind", "start")] = kinds.get(n.get("kind", "start"), 0) + 1
+		if n.has("biome") and (biomes.is_empty() or biomes[-1] != n["biome"]):
+			biomes.append(n["biome"])
+	print("RT kinds=%s biomes=%s wisps=%d sentinels=%d gusts=%d" % [kinds, biomes,
+		level.find_children("*", "Wisp", true, false).size(), level.find_children("*", "Sentinel", true, false).size(),
+		level.find_children("*", "GustZone", true, false).size()])
 	print("RT over=%s" % [over])
 	get_tree().quit()
 

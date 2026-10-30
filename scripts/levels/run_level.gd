@@ -6,10 +6,27 @@ extends LevelKit
 
 signal run_over(result: Dictionary)
 
+## Endless biome stretches: [name, island palette, props]. A new one every STRETCH islands.
+const BIOMES := [
+	["Green Meadows", {}, ["tree_a", "bush_a", "rock_a", "pine_a", "tree_blossom"]],
+	["Blossom Drift", {"grass": "grass_gold"}, ["tree_blossom", "tree_a", "bush_flower", "rock_b"]],
+	["Autumn Isles", {}, ["tree_autumn", "tree_autumn_b", "bush_flower", "rock_a"]],
+	["Frost Reaches", {"grass": "grass_snow", "rock": "rock_ice"}, ["pine_a", "pine_b", "ice_spire", "rock_c"]],
+	["Sunken Sands", {"grass": "grass_sand", "rock": "rock_sand"}, ["dead_tree", "rock_a", "pillar_broken_a", "rock_c"]],
+	["Crystal Shelf", {"grass": "grass_crystal", "rock": "rock_crystal"}, ["crystals_a", "crystals_b", "dead_tree", "rock_c"]],
+	["Ashen Rise", {"grass": "grass_ash", "rock": "rock_ash"}, ["dead_tree", "rock_a", "rock_c", "pillar_broken_a"]],
+	["Storm Shelf", {"grass": "grass_storm", "rock": "rock_dark"}, ["pine_a", "pine_b", "rock_c", "rock_a"]],
+]
+const STRETCH := 8
+const RUINS := ["arch", "arch_broken", "pillar_broken_a", "pillar_broken_b", "pillar_fallen"]
+
 var mode := "endless"
 var seed_value := 1
 var trial_hops := 8
 var lives := 3
+var gold := 0.0  # trials: fixed gold time (s); silver and bronze keep the old ratios to it
+var _biome := 0
+var _biome_deck: Array = []
 var chain: Array = []  # route islands in order (dictionaries from the kit)
 var reached := 0
 var medals := [0.0, 0.0, 0.0]  # gold, silver, bronze (seconds)
@@ -75,7 +92,7 @@ func layout() -> void:
 	_later.clear()
 	_weather()
 	for n in _deco:
-		scatter(n.pos, n.r * 0.35 if n != S else 12.0, n.r * 0.92, int(n.r * 0.6), props, 0.75, 1.15, true, _avoid)
+		scatter(n.pos, n.r * 0.35 if n != S else 12.0, n.r * 0.92, int(n.r * 0.6), n.get("props", props), 0.75, 1.15, true, _avoid)
 	_deco.clear()
 	if mode == "trial":
 		_mark_finish(chain[-1])
@@ -88,6 +105,9 @@ func layout() -> void:
 func _hop() -> void:
 	var cur: Dictionary = chain[-1]
 	var i := chain.size()
+	if mode == "endless":
+		_endless_hop(cur, i)
+		return
 	_heading = clampf(_heading + rng.randf_range(-28.0, 28.0), _base_heading - 55.0, _base_heading + 55.0)
 	var a := _heading
 	var small := ["island_small_a", "island_small_b", "island_small_c"]
@@ -144,7 +164,173 @@ func _hop() -> void:
 	nxt["index"] = i
 	chain.append(nxt)
 	if mode == "trial":
-		medals = [_estimate * 1.15, _estimate * 1.5, _estimate * 2.0]
+		var g := gold if gold > 0.0 else _estimate * 1.15
+		medals = [g, g * 1.3, g * 1.75]
+
+
+## Endless: biome stretches, a wider pool of hops as you go, a ruins rest island every
+## tenth, and enemies that guard the gaps as well as the islands. (Trials keep _hop's
+## original generation so their courses and medal times never change.)
+func _endless_hop(cur: Dictionary, i: int) -> void:
+	if i > 1 and (i - 1) % STRETCH == 0:
+		if _biome_deck.is_empty():  # every biome once before any repeats
+			_biome_deck = range(BIOMES.size())
+			_biome_deck.erase(_biome)
+			for j in range(_biome_deck.size() - 1, 0, -1):
+				var r := rng.randi() % (j + 1)
+				var t = _biome_deck[j]
+				_biome_deck[j] = _biome_deck[r]
+				_biome_deck[r] = t
+		_biome = _biome_deck.pop_back()
+		palette = (BIOMES[_biome][1] as Dictionary).duplicate()
+		props = BIOMES[_biome][2]
+		var bname: String = BIOMES[_biome][0]
+		_later.append(func(): if session and session.hud: session.hud.hint("Entering the %s" % bname, 3.5))
+	var frost := _biome == 3
+	_heading = clampf(_heading + rng.randf_range(-32.0, 32.0), _base_heading - 60.0, _base_heading + 60.0)
+	var a := _heading
+	var small := ["island_small_a", "island_small_b", "island_small_c"]
+	var mid := ["island_mid", "island_flat", "island_tall"]
+	var asset: String = (small if rng.randf() < 0.4 else mid)[rng.randi() % 3]
+	var rest := i % 10 == 0
+	if rest:
+		asset = ["island_big", "island_east", "island_long"][rng.randi() % 3]
+	var kinds := ["glide", "vent", "slab", "mushroom"]
+	if i >= 3:
+		kinds += ["zigzag", "rings", "ferry"]
+	if i >= 6:
+		kinds += ["crumble", "elevator", "gust", "echo"]
+	if i >= 12:
+		kinds += ["carousel", "causeway", "gust", "zigzag", "crumble"]
+	# Drift back toward a comfortable height: half the time pick a hop that goes the right way.
+	var y: float = cur.pos.y
+	if y > 24.0 and rng.randf() < 0.5:
+		kinds = ["glide", "gust"]
+	elif y < -10.0 and rng.randf() < 0.5:
+		kinds = ["vent", "elevator", "mushroom"]
+	var k: String = kinds[rng.randi() % kinds.size()]
+	if k in ["carousel", "causeway"] and rest:
+		k = "glide"
+	var nxt: Dictionary
+	match k:
+		"glide", "gust":
+			var drop := rng.randf_range(3.0, 7.0)
+			nxt = glide(cur, a, drop, asset)
+			if k == "gust":
+				_gust_gap(cur, nxt)
+		"vent":
+			nxt = vent(cur, a, rng.randf_range(8.0, 14.0), asset)
+		"mushroom":
+			nxt = _mushroom_hop(cur, a, asset)
+		"slab", "crumble":
+			var kind := k
+			if k == "crumble" and frost:
+				kind = "melt"
+			nxt = stones(cur, a, kind, rng.randi_range(3, 5), rng.randf_range(0.2, 0.8), asset)
+		"echo":
+			nxt = stones(cur, a, "echo", rng.randi_range(3, 4), rng.randf_range(0.0, 0.5), asset)
+		"zigzag":
+			nxt = _zigzag_hop(cur, a, asset)
+		"rings":
+			nxt = rings(cur, a, rng.randi_range(2, 3), mid[rng.randi() % 3])
+		"ferry":
+			nxt = ferry(cur, a, asset)
+		"elevator":
+			nxt = elevator(cur, a, rng.randf_range(8.0, 14.0), asset)
+		"carousel":
+			nxt = carousel_hop(cur, a)
+		"causeway":
+			nxt = causeway(cur, a, 1 + int(i >= 20 and rng.randf() < 0.5), mid[rng.randi() % 3])
+	nxt["props"] = props
+	nxt["kind"] = k
+	nxt["biome"] = _biome
+	if rest:
+		_ruins(nxt)
+	_enemies(cur, nxt, i, k, rest)
+	nxt["index"] = i
+	chain.append(nxt)
+
+
+## Bounce cap near the rim springs you up to a higher island a short glide away.
+func _mushroom_hop(cur: Dictionary, a: float, asset: String) -> Dictionary:
+	_hops += 1
+	_route_angles.append(a)
+	var d := _dir(a)
+	var rt: float = RADII[asset]
+	var mp: Vector3 = cur.pos + d * (cur.r - 2.6)
+	_reserve(mp, 2.5)
+	var tp: Vector3 = cur.pos + d * (cur.r + 9.0 + rt)
+	tp.y = cur.pos.y + rng.randf_range(2.5, 4.5)
+	var cy: float = cur.pos.y
+	_later.append(func(): mushroom(mp.x, mp.z, cy))
+	return _node(asset, tp, rng.randf() * TAU)
+
+
+## Stepping stones that weave left and right of the straight line.
+func _zigzag_hop(cur: Dictionary, a: float, asset: String) -> Dictionary:
+	_hops += 1
+	_route_angles.append(a)
+	var d := _dir(a)
+	var side := d.cross(Vector3.UP)
+	var rt: float = RADII[asset]
+	var n := rng.randi_range(4, 6)
+	var pts: Array = []
+	for j in n:
+		var p: Vector3 = cur.pos + d * (cur.r + 3.0 + 4.2 * j) + side * (2.0 if j % 2 == 0 else -2.0)
+		p.y = cur.pos.y + 0.3 + 0.35 * j
+		pts.append(p)
+	var tp: Vector3 = cur.pos + d * (cur.r + 3.0 + 4.2 * (n - 1) + 5.0 + rt)
+	tp.y = pts[-1].y
+	_later.append(func():
+		for p in pts:
+			slab(p, 0.85))
+	return _node(asset, tp, rng.randf() * TAU)
+
+
+## A crosswind that pulses across the middle of a glide gap.
+func _gust_gap(cur: Dictionary, nxt: Dictionary) -> void:
+	var a: Vector3 = cur.pos
+	var b: Vector3 = nxt.pos
+	var d := (b - a).slide(Vector3.UP).normalized()
+	var mid := a.lerp(b, 0.5) + Vector3(0, 1.5, 0)
+	var across := d.cross(Vector3.UP) * (1.0 if rng.randf() < 0.5 else -1.0)
+	var w := clampf((b - a).slide(Vector3.UP).length() - float(cur.r) - float(nxt.r), 8.0, 14.0) * 0.7
+	_later.append(func(): gust(mid, Vector3(w, 12.0, w), across, 6.0, 6.0, 3.0))
+
+
+## A broken arch and pillars on the rest islands.
+func _ruins(n: Dictionary) -> void:
+	var c: Vector3 = n.pos
+	var r: float = n.r
+	var yaw := rng.randf() * TAU
+	var picks: Array = []
+	for j in 4:
+		picks.append([RUINS[rng.randi() % RUINS.size()], yaw + j * TAU / 4.0 + rng.randf_range(-0.4, 0.4), rng.randf_range(0.45, 0.7)])
+	_later.append(func():
+		for pk in picks:
+			var p := c + Vector3(cos(pk[1]), 0, sin(pk[1])) * r * float(pk[2])
+			put(pk[0], p.x, p.z, c.y, pk[1] + PI / 2.0)
+			_reserve(p, 2.5))
+
+
+## Wisps on islands and in the gaps between them, pairs later on, sentinels on big islands.
+func _enemies(cur: Dictionary, nxt: Dictionary, i: int, k: String, rest: bool) -> void:
+	if rest or i < 5:
+		return
+	var c: Vector3 = nxt.pos
+	var rr: float = nxt.r
+	var heat := minf(i * 0.012, 0.3)
+	if rng.randf() < 0.25 + heat:
+		var count := 2 if i >= 14 and rng.randf() < 0.4 else 1
+		for j in count:
+			var off := Vector3(rng.randf_range(-2.0, 2.0), 3.0 + j * 1.5, rng.randf_range(-2.0, 2.0))
+			_later.append(func(): wisp(c + off, rr * 0.6))
+	if i >= 9 and k in ["glide", "gust", "rings"] and rng.randf() < 0.2 + heat:
+		var gap: Vector3 = (cur.pos as Vector3).lerp(c, 0.5) + Vector3(0, 1.0, 0)
+		_later.append(func(): wisp(gap, 4.0))
+	if i >= 10 and rr >= 9.0 and rng.randf() < 0.3 + heat:
+		var off2 := Vector3(rng.randf_range(-3.0, 3.0), 0, rng.randf_range(-3.0, 3.0))
+		_later.append(func(): sentinel(c.x + off2.x, c.z + off2.z, c.y))
 
 
 ## Endless: builds two more hops once the player gets close to the end of the chain.
@@ -160,7 +346,7 @@ func _extend() -> void:
 		c.call()
 	_later.clear()
 	for n in _deco:
-		scatter(n.pos, n.r * 0.35, n.r * 0.92, int(n.r * 0.6), props, 0.75, 1.15, true, _avoid)
+		scatter(n.pos, n.r * 0.35, n.r * 0.92, int(n.r * 0.6), n.get("props", props), 0.75, 1.15, true, _avoid)
 	for k in range(first, chain.size()):
 		debris(chain[k].pos, chain[k].r)
 	_deco.clear()
