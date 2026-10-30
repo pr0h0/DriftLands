@@ -42,9 +42,13 @@ var values := {
 	"fullscreen": false,
 	"vsync": true,
 	"render_scale": 1.0,
+	"adaptive_res": OS.has_feature("web_android") or OS.has_feature("web_ios"),
 	"touch_controls": 0,
 }
 var bindings := {}  # action -> Array of keycodes
+var _frames := 0
+var _frame_time := 0.0
+var _dyn_scale := 1.0  # adaptive resolution: fraction of render_scale currently used
 
 
 func _ready() -> void:
@@ -191,7 +195,9 @@ func apply() -> void:
 			AudioServer.set_bus_volume_db(idx, linear_to_db(max(v, 0.0001)))
 			AudioServer.set_bus_mute(idx, v <= 0.001)
 	var vp := get_viewport()
-	vp.scaling_3d_scale = float(values["render_scale"])
+	if not values["adaptive_res"]:
+		_dyn_scale = 1.0
+	vp.scaling_3d_scale = float(values["render_scale"]) * _dyn_scale
 	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][quality()]
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if quality() < 2 else Viewport.SCREEN_SPACE_AA_DISABLED
 	if not OS.has_feature("web"):
@@ -199,6 +205,29 @@ func apply() -> void:
 	var want_fs: bool = values["fullscreen"]
 	if want_fs != is_fullscreen():
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if want_fs else DisplayServer.WINDOW_MODE_WINDOWED)
+
+
+## Adaptive resolution: during play, lowers the 3D render scale while the frame rate is low and
+## eases it back up when there's headroom (never above the chosen render scale).
+func _process(dt: float) -> void:
+	if not values["adaptive_res"] or get_tree().paused or get_tree().get_first_node_in_group("player") == null:
+		_frames = 0
+		_frame_time = 0.0
+		return
+	_frames += 1
+	_frame_time += dt
+	if _frame_time < 3.0:
+		return
+	var fps := _frames / _frame_time
+	_frames = 0
+	_frame_time = 0.0
+	var before := _dyn_scale
+	if fps < 40.0:
+		_dyn_scale = maxf(_dyn_scale - 0.1, minf(0.4 / float(values["render_scale"]), 1.0))  # never below 40% overall
+	elif fps > 56.0:
+		_dyn_scale = minf(_dyn_scale + 0.05, 1.0)
+	if _dyn_scale != before:
+		get_viewport().scaling_3d_scale = float(values["render_scale"]) * _dyn_scale
 
 
 func save() -> void:
@@ -214,6 +243,9 @@ func save() -> void:
 func _load() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) != OK:
+		if OS.has_feature("web_android") or OS.has_feature("web_ios"):
+			values["quality"] = 0  # first launch on a phone: start light, adaptive resolution does the rest
+			values["render_scale"] = 0.8
 		return
 	for k in values:
 		values[k] = cfg.get_value("settings", k, values[k])

@@ -79,6 +79,17 @@ func button_name(action: String) -> String:
 	return action.capitalize()
 
 
+## iPhone/iPad browsers can't go fullscreen; added to the Home Screen the game opens without
+## browser bars. Returns the tip to show, or "" when it doesn't apply (or already installed).
+func home_screen_tip() -> String:
+	var ios := OS.has_feature("web_ios") or OS.get_cmdline_user_args().has("--iostip")
+	if not ios:
+		return ""
+	if OS.has_feature("web") and JavaScriptBridge.eval("!!(navigator.standalone || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches)", true):
+		return ""
+	return "Tip: tap Share, then Add to Home Screen, to play fullscreen"
+
+
 # ------------------------------------------------------------ layout
 
 func _layout() -> void:

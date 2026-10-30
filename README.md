@@ -65,6 +65,8 @@ Use the mouse to steer the camera. Keys can be rebound in Settings.
 floating stick on the left to move and drag anywhere else to look. The Jump / Glide, Run / Dive,
 Shield and Use buttons sit on the right, and Pause and Return are on the left. The first tap goes
 fullscreen. Settings → Gameplay → *Touch controls* switches them between Auto, On and Off.
+On iPhone, use Share → *Add to Home Screen* to play without browser bars. Phones start on Low
+quality with adaptive resolution, and the camera eases in behind you as you walk.
 
 ## Running
 

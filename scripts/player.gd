@@ -652,6 +652,12 @@ func _update_visuals(dt: float, on_floor: bool) -> void:
 		if Settings.get_v("camera_auto") and _mouse_idle > 0.8:
 			yaw = lerp_angle(yaw, hy, 1.0 - exp(-1.2 * dt))
 			pitch = lerp(pitch, -0.2, 1.0 - exp(-1.0 * dt))
+	elif Touch.active and Settings.get_v("camera_auto") and _mouse_idle > 0.6 and spd > 1.0:
+		# Touch: the camera eases in behind the direction you walk, so you rarely need to drag.
+		# Walking back toward the camera leaves it alone (it would spin around otherwise).
+		var my := atan2(-velocity.x, -velocity.z)
+		if absf(angle_difference(yaw, my)) < 2.0:
+			yaw = lerp_angle(yaw, my, 1.0 - exp(-0.9 * clamp(spd / RUN_SPEED, 0.3, 1.0) * dt))
 	model.rotation.x = lerp(model.rotation.x, lean, 1.0 - exp(-8.0 * dt))
 	model.rotation.z = lerp(model.rotation.z, roll, 1.0 - exp(-5.0 * dt))
 	model.visible = _invuln <= 0.0 or fmod(_invuln, 0.2) > 0.1

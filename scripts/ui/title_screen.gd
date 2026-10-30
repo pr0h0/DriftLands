@@ -184,6 +184,21 @@ func _build_ui() -> void:
 	_header.add_child(spacer)
 	_fit_screen()
 	Touch.toggled.connect(func(_on): _fit_screen())
+	var tip := Touch.home_screen_tip()
+	if tip != "":
+		var tl := Label.new()
+		tl.text = tip
+		tl.add_theme_font_size_override("font_size", 22)
+		tl.add_theme_color_override("font_color", UITheme.GOLD)
+		tl.add_theme_color_override("font_outline_color", Color(0.06, 0.04, 0.08, 0.9))
+		tl.add_theme_constant_override("outline_size", 8)
+		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		tl.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+		tl.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		tl.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		tl.offset_right = -24
+		tl.offset_bottom = -16
+		_ui.add_child(tl)
 	_pages = Control.new()
 	_pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(_pages)
@@ -240,7 +255,8 @@ func _show_main() -> void:
 	_menu.add_child(UITheme.button("Wardrobe", _show_wardrobe))
 	_menu.add_child(UITheme.button("Journal", _show_journal))
 	_menu.add_child(UITheme.button("Settings", _show_settings))
-	_menu.add_child(UITheme.fullscreen_button())
+	if not OS.has_feature("web_ios"):  # iPhone browsers have no fullscreen (see the home-screen tip)
+		_menu.add_child(UITheme.fullscreen_button())
 	if not OS.has_feature("web"):
 		_menu.add_child(UITheme.button("Quit", func(): get_tree().quit()))
 	(_menu.get_child(0) as Button).grab_focus()

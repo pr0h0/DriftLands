@@ -60,6 +60,7 @@ func _ready() -> void:
 	q.item_selected.connect(func(i): Settings.set_v("quality", i))
 	_row(vid, "Quality", q)
 	_slider(vid, "Render scale", "render_scale", 0.5, 1.0, 0.05, "%d%%", 100.0)
+	_check(vid, "Adaptive resolution (lower it while the frame rate drops)", "adaptive_res")
 	_check(vid, "Fullscreen", "fullscreen")
 	if not OS.has_feature("web"):
 		_check(vid, "V-Sync", "vsync")

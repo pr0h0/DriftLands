@@ -868,6 +868,9 @@ func _touch_test() -> void:
 	touch.call(3, Vector2(46, 175), true)
 	await get_tree().create_timer(0.2).timeout
 	print("paused=%s" % get_tree().paused)
+	_pause(false)
+	await get_tree().create_timer(7.0).timeout
+	print("3d render scale=%.2f fps=%d" % [get_viewport().scaling_3d_scale, Engine.get_frames_per_second()])
 	get_tree().quit()
 
 
