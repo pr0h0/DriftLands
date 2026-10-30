@@ -8,7 +8,7 @@ HOST="${HOST:-127.0.0.1}"  # HOST=0.0.0.0 to reach it from a phone on the same n
 mkdir -p build/web
 godot --headless --export-release "Web" build/web/index.html
 if ! curl -s -o /dev/null "http://127.0.0.1:$PORT/"; then
-  nohup python3 -m http.server "$PORT" --bind "$HOST" --directory build/web > build/server.log 2>&1 &
+  nohup python3 tools/serve.py "$PORT" "$HOST" > build/server.log 2>&1 &
   sleep 1
 fi
 echo "Driftlands web build ready: http://localhost:$PORT"
