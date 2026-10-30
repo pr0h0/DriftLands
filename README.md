@@ -75,6 +75,7 @@ Open `project.godot` in Godot 4.7 and press Play, or play it in the browser:
 ```sh
 tools/web.sh                  # exports the web build and serves it on http://localhost:4956
 HOST=0.0.0.0 tools/web.sh     # same, reachable from a phone on your network (http://<pc-ip>:4956)
+tools/itch.sh                 # web build zipped for itch.io (build/driftlands-web.zip)
 python3 tools/serve.py        # just serve the last export (no-cache headers, so refreshes pick up new builds)
 ```
 
