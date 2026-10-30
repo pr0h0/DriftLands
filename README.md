@@ -39,7 +39,8 @@ every sound is synthesized in **Python**. The nature props are Quaternius' CC0 S
 - **Endless Flight and time trials**: an endless island chain that generates ahead of you,
   plus three trial courses with gold, silver and bronze times.
 - **Difficulty** (Easy / Normal / Hard): changes lives, time goals, the fragment goal and enemy count.
-- **Wardrobe**: unlock masks, scarves and robes with fragments, stars and completed levels.
+- **Wardrobe**: unlock masks, scarves and robes with fragments, stars, completed levels, long
+  Endless Flights (25 to 85 islands) and gold in every time trial.
 - **Journal**: a carved lore stone near each beacon tells part of the story.
 - **A living title screen**: the home island grows as you light beacons, and the wanderer roams it.
 - **Touch controls** for playing in a mobile browser, detected automatically.

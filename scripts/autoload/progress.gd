@@ -119,6 +119,24 @@ func total_fragments() -> int:
 	return n
 
 
+## Most islands reached in a single Endless Flight.
+func endless_best() -> int:
+	return int(data["runs"].get("endless", {}).get("best", 0))
+
+
+## How many time trials have a best time within their gold time.
+func trial_golds() -> int:
+	var n := 0
+	for id in Levels.MODES:
+		var m: Dictionary = Levels.MODES[id]
+		if m["mode"] != "trial" or not m.has("gold"):
+			continue
+		var best := float(data["runs"].get("trial_%d" % id, {}).get("best", INF))
+		if best <= float(m["gold"]):
+			n += 1
+	return n
+
+
 ## Chapter `ch` counts as complete when all of its levels are done.
 func chapter_done(ch: int) -> bool:
 	for i in Levels.count():

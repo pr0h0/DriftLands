@@ -23,6 +23,24 @@ func _ready() -> void:
 		for i in int(args["fakeprogress"]):
 			Progress.data["levels"][str(i + 1)] = {"done": true, "best": 200.0, "challenges": {"flawless": true, "time": true, "fragments": true}, "fragments": [0, 1, 2, 3, 4]}
 		Progress.data["unlocked"] = int(args["fakeprogress"]) + 1
+	if args.has("fakeruns"):
+		# Debug: "--fakeruns=ISLANDS,GOLDS" pretends an Endless best and N trial golds (in memory only).
+		Progress.readonly = true
+		var fr := String(args["fakeruns"]).split(",")
+		Progress.data["runs"]["endless"] = {"best": int(fr[0])}
+		var ids := [101, 102, 103]
+		for i in int(fr[1]):
+			Progress.data["runs"]["trial_%d" % ids[i]] = {"best": 50.0}
+		if args.has("wear"):  # "--wear=mask,scarf,robe"
+			var w := String(args["wear"]).split(",")
+			Progress.data["wardrobe"] = {"mask": w[0], "scarf": w[1], "robe": w[2]}
+		if args.has("wardrobecheck"):
+			for slot in ["mask", "scarf", "robe"]:
+				for e in Cosmetics.catalog(slot):
+					if e.has("endless") or e.has("golds"):
+						print("WC %s %s %s unlocked=%s" % [slot, e["name"], Cosmetics.requirement(slot, e), Cosmetics.unlocked(slot, e)])
+			get_tree().quit()
+			return
 	if args.has("adaptive"):  # debug: adaptive resolution as on phones
 		Settings.values["adaptive_res"] = true
 	if args.has("touch") or args.has("touchtest"):  # debug: force the on-screen controls

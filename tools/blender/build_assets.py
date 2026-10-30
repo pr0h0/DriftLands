@@ -901,7 +901,7 @@ def build_wanderer(mask="classic"):
         b.uvsphere((0, 0.115, 1.3), 0.14, scale=(1, 0.45, 1.15), m="mask")
         for sx in (-1, 1):
             b.ico((sx * 0.05, 0.178, 1.32), 0.022, sub=1, scale=(1.5, 0.5, 0.7), m="eye")
-    elif mask in ("hidden", "ritual"):
+    elif mask in ("hidden", "ritual", "sunrise", "gale"):
         mc = (0, 0.07, 1.285)
         b.uvsphere(mc, 0.12, u=18, v=12, scale=(0.82, 0.42, 1.32), m="mask")
         fy = mc[1] + 0.12 * 0.42
@@ -909,6 +909,26 @@ def build_wanderer(mask="classic"):
             # Two carved almond slits; a thinner warm core glows inside each.
             slit(b, sx * 0.04, fy - 0.001, 1.315, 0.03, 0.0085, -sx * 0.26, 0.006, "cloth_dark")
             slit(b, sx * 0.04, fy + 0.004, 1.315, 0.022, 0.0035, -sx * 0.26, 0.003, "eye")
+        if mask == "sunrise":
+            # A gold sun on the brow with rays fanning upward (reward: gold in every trial).
+            # Pieces sit on the mask's curved front, so they read from any angle.
+            def on_face(x, z):
+                k = 1.0 - (x / (0.12 * 0.82)) ** 2 - ((z - mc[2]) / (0.12 * 1.32)) ** 2
+                return mc[1] + 0.12 * 0.42 * math.sqrt(max(k, 0.0))
+            sun = (0.0, 1.352)
+            b.cyl((0, on_face(*sun) - 0.004, sun[1]), 0.022, 0.022, 0.012, segs=16, rot=(math.pi / 2, 0, 0), m="trim")
+            for k in range(7):
+                a = math.radians(-72 + 24 * k)
+                r = 0.046 if k % 2 == 0 else 0.04
+                x, z = math.sin(a) * r, sun[1] + math.cos(a) * r * 0.85
+                ln = 0.03 if k % 2 == 0 else 0.02
+                b.box((x, on_face(x, z) - 0.003, z), (0.008, 0.01, ln), rot=(0, a, 0), m="trim")
+        if mask == "gale":
+            # Swept wind stripes across the cheeks (reward: a long Endless run).
+            for sx in (-1, 1):
+                for k in range(3):
+                    b.box((sx * (0.055 + 0.008 * k), fy - 0.004, 1.245 + 0.022 * k),
+                          (0.034 - 0.006 * k, 0.012, 0.0055), rot=(0, sx * 0.38, 0), m="paint")
         if mask == "ritual":
             b.box((0, fy - 0.002, 1.255), (0.012, 0.012, 0.12), m="paint")
             b.box((0, fy - 0.004, 1.36), (0.05, 0.012, 0.01), m="paint")
@@ -943,6 +963,16 @@ def _():
 @asset("wanderer_crescent")
 def _():
     build_wanderer("crescent")
+
+
+@asset("wanderer_sunrise")
+def _():
+    build_wanderer("sunrise")
+
+
+@asset("wanderer_gale")
+def _():
+    build_wanderer("gale")
 
 
 @asset("glider")

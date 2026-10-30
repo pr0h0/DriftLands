@@ -364,7 +364,7 @@ func _wardrobe_row(v: VBoxContainer, slot: String) -> void:
 	name_l.custom_minimum_size.x = 80
 	row.add_child(name_l)
 	var item := Label.new()
-	item.custom_minimum_size.x = 300
+	item.custom_minimum_size.x = 340
 	item.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var note := Label.new()
 	note.add_theme_font_size_override("font_size", 15)

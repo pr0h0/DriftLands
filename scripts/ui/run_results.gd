@@ -41,6 +41,11 @@ func setup(r: Dictionary) -> RunResults:
 		info.text = "Time  %s%s\nBest  %s\nGold %s  ·  Silver %s  ·  Bronze %s" % [Levels.format_time(r["time"]), "   · new best" if r["new_best"] else "",
 			Levels.format_time(float(r["best"])), Levels.format_time(m[0]), Levels.format_time(m[1]), Levels.format_time(m[2])]
 	v.add_child(info)
+	for u in r.get("unlocks", []):
+		var ul := Label.new()
+		ul.text = "Unlocked in the Wardrobe:  %s" % u
+		ul.add_theme_color_override("font_color", UITheme.GOLD)
+		v.add_child(ul)
 	v.add_child(UITheme.button("Fly again", func(): again.emit()))
 	v.add_child(UITheme.button("Main menu", func(): quit_to_menu.emit()))
 	create_tween().tween_property(root, "modulate:a", 1.0, 1.0)

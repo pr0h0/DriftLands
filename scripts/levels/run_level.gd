@@ -424,6 +424,7 @@ func on_fell() -> void:
 
 func _finish(won: bool) -> void:
 	_done = true
+	var had := Cosmetics.unlocked_names()
 	var t := session.elapsed
 	var key := "endless" if mode == "endless" else "trial_%d" % level_id
 	var rec: Dictionary = Progress.data["runs"].get(key, {})
@@ -439,6 +440,7 @@ func _finish(won: bool) -> void:
 	result["best"] = rec.get("best", 0)
 	Progress.data["runs"][key] = rec
 	Progress.save()
+	result["unlocks"] = Cosmetics.unlocked_names().filter(func(n): return not n in had)
 	run_over.emit(result)
 
 

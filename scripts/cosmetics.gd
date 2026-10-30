@@ -1,11 +1,15 @@
 class_name Cosmetics
 ## Wardrobe catalog: masks (unlocked by light fragments), scarves (by stars) and robes
-## (by levels completed). The current choice lives in Progress.data["wardrobe"].
+## (by levels completed). Entries with "endless" (islands in one Endless Flight) or "golds"
+## (trials won within gold time) unlock that way instead. The current choice lives in
+## Progress.data["wardrobe"].
 
 const MASKS := [
 	{"id": "hidden", "name": "Hidden", "asset": "wanderer", "fragments": 0},
 	{"id": "ritual", "name": "Ritual", "asset": "wanderer_ritual", "fragments": 15},
 	{"id": "crescent", "name": "Crescent", "asset": "wanderer_crescent", "fragments": 45},
+	{"id": "gale", "name": "Gale", "asset": "wanderer_gale", "endless": 85},
+	{"id": "sunrise", "name": "Sunrise", "asset": "wanderer_sunrise", "golds": 3},
 ]
 
 const SCARVES := [
@@ -17,6 +21,8 @@ const SCARVES := [
 	{"id": "frost", "name": "Frost", "base": Color(0.86, 0.9, 0.96), "glyph": Color(0.35, 0.78, 1.0), "stars": 38},
 	{"id": "night", "name": "Night", "base": Color(0.05, 0.05, 0.09), "glyph": Color(0.5, 0.92, 1.0), "stars": 50},
 	{"id": "aurora", "name": "Aurora", "base": Color(0.12, 0.62, 0.55), "glyph": Color(0.85, 0.55, 1.0), "stars": 63},
+	{"id": "tailwind", "name": "Tailwind", "base": Color(0.92, 0.94, 0.98), "glyph": Color(0.45, 0.75, 1.0), "endless": 25},
+	{"id": "starlit", "name": "Starlit", "base": Color(0.08, 0.1, 0.28), "glyph": Color(1.0, 0.92, 0.55), "endless": 55},
 ]
 
 const ROBES := [
@@ -26,6 +32,8 @@ const ROBES := [
 	{"id": "slate", "name": "Slate", "a": Color(0.3, 0.34, 0.42), "b": Color(0.24, 0.27, 0.34), "levels": 11},
 	{"id": "ivory", "name": "Ivory", "a": Color(0.9, 0.87, 0.8), "b": Color(0.82, 0.78, 0.7), "levels": 14},
 	{"id": "midnight", "name": "Midnight", "a": Color(0.1, 0.1, 0.2), "b": Color(0.07, 0.07, 0.14), "levels": 21},
+	{"id": "skyrunner", "name": "Skyrunner", "a": Color(0.2, 0.52, 0.78), "b": Color(0.14, 0.42, 0.66), "endless": 40},
+	{"id": "stormcloak", "name": "Stormcloak", "a": Color(0.36, 0.3, 0.5), "b": Color(0.26, 0.22, 0.38), "endless": 70},
 ]
 
 const DEFAULT := {"mask": "hidden", "scarf": "ember", "robe": "crimson"}
@@ -61,6 +69,10 @@ static func _entry(slot: String, id: String) -> Dictionary:
 
 ## [have, need, unit] for an item's unlock requirement.
 static func requirement(slot: String, e: Dictionary) -> Array:
+	if e.has("endless"):
+		return [Progress.endless_best(), int(e["endless"]), "Endless islands"]
+	if e.has("golds"):
+		return [Progress.trial_golds(), int(e["golds"]), "trial golds"]
 	match slot:
 		"mask":
 			return [Progress.total_fragments(), int(e["fragments"]), "light fragments"]
@@ -72,6 +84,16 @@ static func requirement(slot: String, e: Dictionary) -> Array:
 static func unlocked(slot: String, e: Dictionary) -> bool:
 	var r := requirement(slot, e)
 	return r[0] >= r[1]
+
+
+## Names of everything currently unlocked, as "Name slot" (e.g. "Tailwind scarf").
+static func unlocked_names() -> Array:
+	var out := []
+	for slot in ["mask", "scarf", "robe"]:
+		for e in catalog(slot):
+			if unlocked(slot, e):
+				out.append("%s %s" % [e["name"], slot])
+	return out
 
 
 static func mask_asset() -> String:
